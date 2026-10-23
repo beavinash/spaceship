@@ -10,7 +10,8 @@ static void usage(void) {
     fputs("usage:\n"
           "  ppo train --run-dir DIR [--seed N] [--total-decisions N | --updates N] [--max-seconds S]\n"
           "            [--checkpoint-every N]\n"
-          "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--ent-coef X]\n"
+          "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--gamma X] [--lambda X]\n"
+          "            [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
           "            [--death X] [--escape X] [--ally-share X]\n"
           "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--sample]\n"
@@ -54,6 +55,10 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
             t->episode_ticks = (int)(atof(v) * TICK_HZ);
         } else if (!strcmp(flag, "--lr")) {
             t->ppo.lr = (float)atof(v);
+        } else if (!strcmp(flag, "--gamma")) {
+            t->ppo.gamma = (float)atof(v);
+        } else if (!strcmp(flag, "--lambda")) {
+            t->ppo.lambda = (float)atof(v);
         } else if (!strcmp(flag, "--ent-coef")) {
             t->ppo.ent_coef = (float)atof(v);
         } else if (!strcmp(flag, "--epochs")) {
