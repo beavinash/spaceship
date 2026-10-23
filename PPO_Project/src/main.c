@@ -7,6 +7,7 @@
 static void usage(void) {
     fputs("usage:\n"
           "  ppo train --run-dir DIR [--seed N] [--total-decisions N | --updates N] [--max-seconds S]\n"
+          "            [--checkpoint-every N]\n"
           "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
           "            [--death X] [--escape X] [--ally-share X]\n",
@@ -34,6 +35,8 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
             updates = atoll(v);
         } else if (!strcmp(flag, "--max-seconds")) {
             rc->max_seconds = atof(v);
+        } else if (!strcmp(flag, "--checkpoint-every")) {
+            rc->checkpoint_every = atoi(v);
         } else if (!strcmp(flag, "--envs")) {
             t->envs = atoi(v);
         } else if (!strcmp(flag, "--steps")) {

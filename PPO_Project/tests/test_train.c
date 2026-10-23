@@ -75,3 +75,57 @@ void test_train_run_writes_metrics_csv(void) {
     CHECK(isfinite(ep_return) && ep_return != 0.0);
     CHECK(entropy > 0.0);
 }
+
+static int file_contains(const char *path, const char *needle) {
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return 0;
+    }
+    static char buf[65536];
+    size_t n = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    buf[n] = '\0';
+    return strstr(buf, needle) != NULL;
+}
+
+void test_train_run_writes_manifest_and_checkpoints(void) {
+    RunConfig rc = run_config_default();
+    rc.train.envs = 2;
+    rc.train.steps = 8;
+    rc.train.hidden = 16;
+    rc.train.seed = 3u;
+    rc.total_decisions = 2 * 2 * 8;
+    rc.checkpoint_every = 1;
+    rc.run_dir = "build/test-run-ckpt";
+    remove("build/test-run-ckpt/checkpoints/update_000001.bin");
+    remove("build/test-run-ckpt/checkpoints/update_000002.bin");
+    remove("build/test-run-ckpt/final.bin");
+    CHECK(train_run(&rc) == 0);
+
+    const char *manifest = "build/test-run-ckpt/manifest.json";
+    CHECK(file_contains(manifest, "\"status\": \"completed\""));
+    CHECK(file_contains(manifest, "\"seed\": 3"));
+    CHECK(file_contains(manifest, "\"updates\": 2"));
+    CHECK(file_contains(manifest, "\"decisions\": 32"));
+    CHECK(file_contains(manifest, "\"git_commit\": \""));
+    CHECK(file_contains(manifest, "\"ship_health\": 200"));
+    CHECK(file_contains(manifest, "\"ship_ammo\": 100"));
+    CHECK(file_contains(manifest, "\"shot\": -0.01"));
+
+    TrainConfig tc = rc.train;
+    tc.seed = 99u; /* different initial weights, so a successful load is visible */
+    Trainer fresh;
+    CHECK(trainer_init(&fresh, &tc) == 0);
+    Mlp *nets[CHECKPOINT_NETS];
+    ship_agent_nets(fresh.agents, nets);
+    uint32_t update = 0;
+    CHECK(checkpoint_load("build/test-run-ckpt/checkpoints/update_000001.bin", nets, CHECKPOINT_NETS, &update) == 0);
+    CHECK(update == 1);
+    CHECK(checkpoint_load("build/test-run-ckpt/checkpoints/update_000002.bin", nets, CHECKPOINT_NETS, &update) == 0);
+    CHECK(update == 2);
+    float probe = fresh.agents[2].critic.params[5];
+    CHECK(checkpoint_load("build/test-run-ckpt/final.bin", nets, CHECKPOINT_NETS, &update) == 0);
+    CHECK(update == 2);
+    CHECK(fresh.agents[2].critic.params[5] == probe); /* final equals the last periodic snapshot */
+    trainer_free(&fresh);
+}

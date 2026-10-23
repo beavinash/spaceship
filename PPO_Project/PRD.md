@@ -308,7 +308,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=metrics_csv` → exit 0; `PASS train_run_writes_metrics_csv`; `make -C PPO_Project smoke` → exit 0 with the 27-column header and 2 rows
   - regression: `make -C PPO_Project test` → exit 0; `32 tests, 383 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 17 files` after making the test stop on a missing header; dependency audit: unavailable (no third-party code in the core)
-- [ ] T030 | P1 | depends: T029, T022 | AC-012 | Write run manifests with periodic checkpoints; done when: a smoke run directory holds a manifest plus loadable checkpoints.
+- [x] T030 | P1 | depends: T029, T022 | AC-012 | Write run manifests with periodic checkpoints; done when: a smoke run directory holds a manifest plus loadable checkpoints.
+  - red: `make -C PPO_Project test T=manifest` → exit 2; `tests/test_train.c:98:8: error: no member named 'checkpoint_every' in 'RunConfig'`
+  - green: `make -C PPO_Project test T=manifest` → exit 0; `PASS train_run_writes_manifest_and_checkpoints`; `make -C PPO_Project smoke` manifest shows `"status": "completed"`
+  - regression: `make -C PPO_Project test` → exit 0; `33 tests, 400 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 17 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T031 | P1 | depends: T030 | AC-012 | Update the three ship networks on parallel pthreads; done when: threaded results match serial results bit for bit for a fixed seed.
 - [ ] T032 | P0 | depends: T017 | AC-013 | Add an `eval` command reporting per-seed metrics for the random policy; done when: a dev-split JSON report lists 20 seed rows with mean, std, 95% CI.
 - [ ] T033 | P0 | depends: T032, T022 | AC-013 | Evaluate PPO checkpoints in the `eval` command; done when: a checkpoint report matches the random report schema.

@@ -4,6 +4,7 @@ OPT ?= -O2
 CFLAGS ?= -std=c11 $(OPT) -Wall -Wextra -Wpedantic $(WERROR)
 CPPFLAGS += -Isrc
 LDLIBS += -lm -lpthread
+GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)$(shell test -n "$$(git status --porcelain -- . 2>/dev/null)" && echo -dirty)
 
 BUILD := build
 HEADERS := $(wildcard src/*.h tests/*.h tests/*.def)
@@ -21,7 +22,7 @@ $(BUILD)/test_runner: $(TEST_SRC) $(CORE_SRC) $(HEADERS) | $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SRC) $(CORE_SRC) -o $@ $(LDLIBS)
 
 $(BUILD)/ppo: src/main.c $(CORE_SRC) $(HEADERS) | $(BUILD)
-	$(CC) $(CPPFLAGS) $(CFLAGS) src/main.c $(CORE_SRC) -o $@ $(LDLIBS)
+	$(CC) $(CPPFLAGS) -DPPO_GIT_COMMIT='"$(GIT_COMMIT)"' $(CFLAGS) src/main.c $(CORE_SRC) -o $@ $(LDLIBS)
 
 test: $(BUILD)/test_runner
 	./$(BUILD)/test_runner $(T)

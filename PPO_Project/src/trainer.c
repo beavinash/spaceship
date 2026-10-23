@@ -65,6 +65,13 @@ int trainer_init(Trainer *tr, const TrainConfig *cfg) {
     return 0;
 }
 
+void ship_agent_nets(Agent agents[NUM_SHIPS], Mlp *nets[CHECKPOINT_NETS]) {
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        nets[2 * k] = &agents[k].actor;
+        nets[2 * k + 1] = &agents[k].critic;
+    }
+}
+
 void trainer_free(Trainer *tr) {
     for (int k = 0; k < NUM_SHIPS; k++) {
         agent_free(&tr->agents[k]);

@@ -60,6 +60,10 @@ typedef struct {
 int trainer_init(Trainer *tr, const TrainConfig *cfg);
 void trainer_free(Trainer *tr);
 
+/* Checkpoints hold every ship's actor then critic: actor0, critic0, actor1, critic1, ... */
+#define CHECKPOINT_NETS (2 * NUM_SHIPS)
+void ship_agent_nets(Agent agents[NUM_SHIPS], Mlp *nets[CHECKPOINT_NETS]);
+
 /* Fill every ship's rollout with cfg.steps decisions per arena, then compute GAE. */
 void trainer_collect(Trainer *tr);
 
