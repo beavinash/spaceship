@@ -105,19 +105,16 @@ static void move_missiles(Env *env) {
     }
 }
 
-/* Upstream Aliencraft_Type_N: random type, then random x in [0, 800], entering just above the arena. */
-static void spawn_enemy(Env *env) {
-    int type = (int)pcg32_bounded(&env->rng, 3);
-    float x = (float)pcg32_bounded(&env->rng, ENEMY_SPAWN_MAX_X + 1);
+Enemy *env_add_enemy(Env *env, int type, float x, float y) {
     if (env->n_enemies >= MAX_ENEMIES) {
         env->stats.dropped_spawns++;
-        return;
+        return NULL;
     }
     const EnemyType *t = &ENEMY_TYPES[type];
     Enemy *e = &env->enemies[env->n_enemies++];
     memset(e, 0, sizeof *e);
     e->x = x;
-    e->y = -ENEMY_RADIUS;
+    e->y = y;
     e->vx = ENEMY_START_VX;
     e->vy = ENEMY_START_VY;
     e->accel = t->accel;
@@ -129,12 +126,34 @@ static void spawn_enemy(Env *env) {
     e->attack_cd_ticks = t->attack_cooldown_ticks;
     e->id = env->next_enemy_id++;
     env->stats.spawned++;
+    return e;
+}
+
+/* Upstream Aliencraft_Type_N: random type, then random x in [0, 800], entering just above the arena. */
+static void spawn_enemy(Env *env) {
+    int type = (int)pcg32_bounded(&env->rng, 3);
+    float x = (float)pcg32_bounded(&env->rng, ENEMY_SPAWN_MAX_X + 1);
+    env_add_enemy(env, type, x, -ENEMY_RADIUS);
 }
 
 static void update_spawner(Env *env) {
     if (--env->spawn_timer <= 0) {
         spawn_enemy(env);
         env->spawn_timer = ENEMY_SPAWN_TICKS;
+    }
+}
+
+/* Upstream AccelerateZigZagVPath plus Move_Enemy's horizontal clamp. */
+static void move_enemies(Env *env) {
+    for (int k = 0; k < env->n_enemies; k++) {
+        Enemy *e = &env->enemies[k];
+        e->vy += e->accel * TICK_DT;
+        e->y += e->vy * TICK_DT;
+        int c = (int)floorf(e->x) % ZIGZAG_PERIOD;
+        if (c < ZIGZAG_WINDOW && c > 0) {
+            e->vx = -e->vx;
+        }
+        e->x = clampf(e->x + e->vx * TICK_DT, 0.0f, ARENA_SIZE - 2.0f * e->radius);
     }
 }
 
@@ -146,6 +165,7 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
         }
     }
     resolve_missiles(env);
+    move_enemies(env);
     move_missiles(env);
     env->tick++;
 }

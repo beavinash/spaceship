@@ -173,6 +173,9 @@ typedef struct {
 
 void env_reset(Env *env, uint64_t seed);
 
+/* Append an enemy of the given type at a top-left position; NULL if every slot is taken. */
+Enemy *env_add_enemy(Env *env, int type, float x, float y);
+
 /* Advance one physics tick, in upstream frame order, with each ship holding its action. */
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]);
 

@@ -193,7 +193,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=spawns` → exit 0; `PASS env_spawns_seeded_enemies_every_90_ticks`
   - regression: `make -C PPO_Project test` → exit 0; `8 tests, 86 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T007 | P0 | depends: T006 | AC-002 | Move enemies with the upstream zigzag reversal rule; done when: a fixture reproduces the reversal tick for a known start x.
+- [x] T007 | P0 | depends: T006 | AC-002 | Move enemies with the upstream zigzag reversal rule; done when: a fixture reproduces the reversal tick for a known start x.
+  - red: `make -C PPO_Project test T=zigzag` → exit 2; `tests/test_env.c:181:16: error: call to undeclared function 'env_add_enemy'`
+  - green: `make -C PPO_Project test T=zigzag` → exit 0; `PASS env_enemy_zigzag_reverses_in_window` (two wall expectations in the fixture were corrected to the upstream rule: right-wall sticking and in-window jitter)
+  - regression: `make -C PPO_Project test` → exit 0; `9 tests, 100 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T008 | P0 | depends: T005, T007 | AC-002 | Apply missile damage to every overlapping live enemy; done when: tests show 10 damage per overlapped enemy with the missile removed.
 - [ ] T009 | P0 | depends: T008 | AC-002 | Convert destroyed enemies into upstream explosions credited to the shooter; done when: a kill test asserts radius 50, damage 1, 18-tick cooldown, owner score + points.
 - [ ] T010 | P0 | depends: T009 | AC-002 | Apply contact damage under per-enemy attack cooldowns; done when: overlapping a type-1 enemy for 240 ticks deals exactly 10 damage.

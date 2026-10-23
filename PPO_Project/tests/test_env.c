@@ -174,3 +174,36 @@ void test_env_spawns_seeded_enemies_every_90_ticks(void) {
     }
     CHECK(same);
 }
+
+void test_env_enemy_zigzag_reverses_in_window(void) {
+    Env env;
+    quiet_env(&env);
+    Enemy *e = env_add_enemy(&env, 0, 340.0f, 0.0f);
+    CHECK(e != NULL && env.n_enemies == 1);
+    hold(&env, IDLE, IDLE, IDLE, 7);
+    CHECK_NEAR(env.enemies[0].vx, 200.0f, 0.0);
+    CHECK_NEAR(env.enemies[0].x, 340.0f + 7.0f * 200.0f / 120.0f, 1e-3);
+    /* Tick 8 sees floor(x) % 350 == 1, flips vx, then moves left. */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK_NEAR(env.enemies[0].vx, -200.0f, 0.0);
+    CHECK_NEAR(env.enemies[0].x, 350.0f, 1e-3);
+    CHECK_NEAR(env.enemies[0].vy, 16.0f, 1e-4);
+    CHECK_NEAR(env.enemies[0].y, 107.0f / 120.0f, 1e-4);
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK_NEAR(env.enemies[0].vx, -200.0f, 0.0);
+
+    quiet_env(&env);
+    env_add_enemy(&env, 1, 949.0f, 0.0f);
+    env_add_enemy(&env, 2, 1.0f, 0.0f);
+    env.enemies[1].vx = -200.0f;
+    hold(&env, IDLE, IDLE, IDLE, 10);
+    /* Upstream quirk kept: 950 % 350 == 250 is outside the window, so an enemy clamped there never reverses. */
+    CHECK_NEAR(env.enemies[0].x, 950.0f, 0.0);
+    CHECK_NEAR(env.enemies[0].vx, 200.0f, 0.0);
+    /* Upstream quirk kept: inside the window every tick flips again, so an enemy at x = 1 jitters 1 <-> 2.67. */
+    CHECK_NEAR(env.enemies[1].vx, -200.0f, 0.0);
+    CHECK_NEAR(env.enemies[1].x, 1.0f, 1e-3);
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK_NEAR(env.enemies[1].vx, 200.0f, 0.0);
+    CHECK_NEAR(env.enemies[1].x, 1.0f + 200.0f / 120.0f, 1e-3);
+}
