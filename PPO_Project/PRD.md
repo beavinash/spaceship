@@ -338,7 +338,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=legacy_target` → exit 0; `PASS legacy_target_locking_matches_upstream`; CLI: `legacy on dev (20 scenarios): team score 102.60 +/- 9.97, deaths 0.75 +/- 0.24`
   - regression: `make -C PPO_Project test` → exit 0; `38 tests, 507 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 21 files`; dependency audit: cJSON 1.7.19 (Homebrew), optional
-- [ ] T036 | P1 | depends: T033 | AC-013 | Select the best checkpoint on development seeds; done when: selection picks the highest mean team score with deterministic tie-breaking.
+- [x] T036 | P1 | depends: T033 | AC-013 | Select the best checkpoint on development seeds; done when: selection picks the highest mean team score with deterministic tie-breaking.
+  - red: `make -C PPO_Project test T=select_best` → exit 2; `tests/test_select.c:5:10: fatal error: 'select.h' file not found` (header then named selection.h)
+  - green: `make -C PPO_Project test T=select_best` → exit 0; `PASS select_best_breaks_ties_deterministically`
+  - regression: `make -C PPO_Project test` → exit 0; `39 tests, 523 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 23 files` after reworking two stream reads; dependency audit: unavailable (no third-party code in the core)
 - [ ] T037 | P1 | depends: T017 | AC-015 | Render the arena with original artwork in raylib; done when: `viewer --screenshot` saves a PNG showing ships, enemies, missiles.
 - [ ] T038 | P1 | depends: T037, T033 | AC-015 | Drive viewer ships from checkpoints or baselines; done when: `viewer --policy ppo --checkpoint PATH --screenshot` exits 0 with an image.
 - [ ] T039 | P2 | depends: T038 | AC-015 | Show per-ship score, health, kills in a HUD with pause/speed keys; done when: a screenshot shows the HUD text.

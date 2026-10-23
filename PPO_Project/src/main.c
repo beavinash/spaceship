@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "eval.h"
+#include "selection.h"
 #include "train.h"
 
 static void usage(void) {
@@ -14,7 +15,8 @@ static void usage(void) {
           "            [--death X] [--escape X] [--ally-share X]\n"
           "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--sample]\n"
           "           [--game-data DIR (legacy; default ../Game_Data)]\n"
-          "           [--split dev|test] [--final]\n",
+          "           [--split dev|test] [--final]\n"
+          "  ppo select --run-dir DIR   (scores DIR's checkpoints on dev; writes selection.json, selected.bin)\n",
           stderr);
 }
 
@@ -163,7 +165,29 @@ static int run_eval(int argc, char **argv, const char *binary) {
     return 0;
 }
 
+static int run_select(int argc, char **argv) {
+    if (argc != 2 || strcmp(argv[0], "--run-dir") != 0) {
+        return 2;
+    }
+    static Candidate candidates[1024];
+    int n = 0;
+    int best = select_run(argv[1], candidates, 1024, &n);
+    if (best < 0) {
+        return 1;
+    }
+    printf("selected %s (update %u): dev team score %.2f, deaths %.2f, from %d checkpoints\n", candidates[best].path,
+           candidates[best].update, candidates[best].mean_score, candidates[best].mean_deaths, n);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc >= 2 && !strcmp(argv[1], "select")) {
+        int rc = run_select(argc - 2, argv + 2);
+        if (rc == 2) {
+            usage();
+        }
+        return rc;
+    }
     if (argc >= 2 && !strcmp(argv[1], "eval")) {
         int rc = run_eval(argc - 2, argv + 2, argv[0]);
         if (rc == 2) {
