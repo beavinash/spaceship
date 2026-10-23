@@ -151,11 +151,14 @@ static void resolve_missiles(Env *env) {
 }
 
 /* Upstream AccelerateStraightVPath: speed up, then move up. */
+static void step_missile(Missile *mi) {
+    mi->vy += MISSILE_ACCEL * TICK_DT;
+    mi->y -= mi->vy * TICK_DT;
+}
+
 static void move_missiles(Env *env) {
     for (int m = 0; m < env->n_missiles; m++) {
-        Missile *mi = &env->missiles[m];
-        mi->vy += MISSILE_ACCEL * TICK_DT;
-        mi->y -= mi->vy * TICK_DT;
+        step_missile(&env->missiles[m]);
     }
 }
 
@@ -198,16 +201,19 @@ static void update_spawner(Env *env) {
 }
 
 /* Upstream AccelerateZigZagVPath plus Move_Enemy's horizontal clamp. */
+static void step_enemy(Enemy *e) {
+    e->vy += e->accel * TICK_DT;
+    e->y += e->vy * TICK_DT;
+    int c = (int)floorf(e->x) % ZIGZAG_PERIOD;
+    if (c < ZIGZAG_WINDOW && c > 0) {
+        e->vx = -e->vx;
+    }
+    e->x = clampf(e->x + e->vx * TICK_DT, 0.0f, ARENA_SIZE - 2.0f * e->radius);
+}
+
 static void move_enemies(Env *env) {
     for (int k = 0; k < env->n_enemies; k++) {
-        Enemy *e = &env->enemies[k];
-        e->vy += e->accel * TICK_DT;
-        e->y += e->vy * TICK_DT;
-        int c = (int)floorf(e->x) % ZIGZAG_PERIOD;
-        if (c < ZIGZAG_WINDOW && c > 0) {
-            e->vx = -e->vx;
-        }
-        e->x = clampf(e->x + e->vx * TICK_DT, 0.0f, ARENA_SIZE - 2.0f * e->radius);
+        step_enemy(&env->enemies[k]);
     }
 }
 
@@ -531,4 +537,42 @@ int env_check_invariants(const Env *env, char *why, size_t why_size) {
              env->stats.escapes, live);
     }
     return 0;
+}
+
+float env_fire_solution(const Env *env, int ship, int enemy, int *hit) {
+    const Ship *s = &env->ships[ship];
+    if (hit) {
+        *hit = 0;
+    }
+    if (!s->alive || env->enemies[enemy].dead) {
+        return FIRE_NO_SOLUTION;
+    }
+    /* Replay the tick order of env_tick for one missile and one enemy: check, then move both. */
+    Missile m = {.x = s->x, .y = s->y, .vy = MISSILE_START_VY, .owner = ship};
+    Enemy e = env->enemies[enemy];
+    const float reach = MISSILE_RADIUS + e.radius;
+    float closest = FIRE_NO_SOLUTION, offset = FIRE_NO_SOLUTION;
+    for (int t = 0; t < 4 * TICK_HZ; t++) {
+        float d = centre_distance(m.x, m.y, MISSILE_RADIUS, e.x, e.y, e.radius);
+        if (d < closest) {
+            closest = d;
+            offset = fabsf((e.x + e.radius) - (m.x + MISSILE_RADIUS));
+        }
+        if (d < reach) {
+            if (hit) {
+                *hit = 1;
+            }
+            break;
+        }
+        float past = (e.y + e.radius) - (m.y + MISSILE_RADIUS); /* > 0: the missile is above the enemy */
+        if (m.y < -MISSILE_RADIUS || past > reach) {
+            break; /* missile gone, or the gap can only grow from here */
+        }
+        step_enemy(&e);
+        step_missile(&m);
+        if (e.y > ARENA_SIZE) {
+            break; /* escaped */
+        }
+    }
+    return offset;
 }

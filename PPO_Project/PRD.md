@@ -81,12 +81,12 @@ Episodes start from a seeded reset. They **terminate** when every ship is dead a
 | --- | --- | --- |
 | Self | 8 | x/1000, y/1000, health/200, weapon cooldown/30, ammo/100, alive, time-remaining fraction, would-hit-now (1 if a missile fired now would hit some live enemy) |
 | Allies | 2 × 6 | alive, dx/1000, dy/1000, health/200, weapon cooldown/30, ammo/100 |
-| Enemies and explosions | 8 × 12 | present, dx/1000, dy/1000, vx/800, vy/1000, health/40, explosion bit, 3 type bits, attack-ready bit, fire solution (closest approach of a missile fired now, /200, capped at 1) |
+| Enemies and explosions | 8 × 12 | present, dx/1000, dy/1000, vx/800, vy/1000, health/40, explosion bit, 3 type bits, attack-ready bit, fire solution (horizontal offset of a missile fired now at contact or closest pass, /200, capped at 1) |
 | Missiles | 8 × 4 | present, dx/1000, dy/1000, fired-by-self bit |
 
 Entity slots hold the nearest entities by centre distance, ordered nearest first, zero-padded, with relative values clamped to [−1, 1].
 
-**Fire solution.** For a live enemy above the ship, simulate a missile launched now from the ship's position against that enemy alone. Use the exact tick rules: missile acceleration, enemy acceleration, zigzag reversal and wall clamp. Record the closest centre distance reached before the missile passes the enemy or leaves the arena. A shot "would hit" when that distance is under 10 + 25 px. The prediction ignores other missiles and assumes the ship holds still until it fires.
+**Fire solution.** For a live enemy above the ship, simulate a missile launched now from the ship's position against that enemy alone. Use the exact tick rules: missile acceleration, enemy acceleration, zigzag reversal and wall clamp. Stop when the missile hits, passes the enemy, or leaves the arena. A shot "would hit" when the centres come within 10 + 25 px. Its offset is the horizontal distance between the centres at contact, or at the closest pass for a miss; 0 means dead centre. The prediction ignores other missiles and assumes the ship holds still until it fires.
 
 **Reward per ship per decision** (score + survival; coefficients are configurable, these are defaults):
 
@@ -102,7 +102,7 @@ r_i = 0.125 * points_of_kills_by_i          # +0.25 / +0.5 / +1.0 for type 1 / 2
     - 0.003 * near_edge_i                   # ship centre within 60 px of a side wall or the bottom
 ```
 
-Φ_i(s) is the best shot quality available to ship i: the maximum over live enemies of max(0, 1 − closest approach / 35). It is 0 without ammo or when the ship is dead. Φ is 0 after a terminal transition (the ship's death or team defeat), so shaping does not change which policy is optimal (Ng et al., 1999). At a time-limit ending, Φ(s') is evaluated normally. The edge penalty is not potential-based. It deliberately makes wall camping costly: about −10.8 per episode if a ship never leaves the band.
+Φ_i(s) is the best shot quality available to ship i: the maximum over live enemies of max(0, 1 − offset / 70). The 70 px ramp gives near misses partial credit, so shaping leads toward a hit. It is 0 without ammo or when the ship is dead. Φ is 0 after a terminal transition (the ship's death or team defeat), so shaping does not change which policy is optimal (Ng et al., 1999). At a time-limit ending, Φ(s') is evaluated normally. The edge penalty is not potential-based. It deliberately makes wall camping costly: about −10.8 per episode if a ship never leaves the band.
 
 Rewards are not clipped. Each component is accumulated and logged per episode. The upstream game score (points per ship and team total) is tracked separately from the shaped return.
 
@@ -377,7 +377,11 @@ Review scope: PPO_Project/
   - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → exit 0; `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T041 | P1 | depends: T033 | AC-017 | Document build, training, evaluation, viewing in the README; done when: every README command runs as written.
-- [ ] T047 | P0 | depends: T016 | AC-021 | Predict a missile's closest approach to a live enemy if fired now; done when: tests firing real missiles confirm every predicted hit or miss.
+- [x] T047 | P0 | depends: T016 | AC-021 | Predict a missile's closest approach to a live enemy if fired now; done when: tests firing real missiles confirm every predicted hit or miss.
+  - red: `make -C PPO_Project test T=fire_solution` → exit 2; `tests/test_env.c:646:34: error: call to undeclared function 'env_fire_solution'`
+  - green: `make -C PPO_Project test T=fire_solution` → exit 0; `PASS env_fire_solution_matches_real_missiles` (1,152 grid cases agree with missiles fired in the real simulation; the return value became the horizontal offset plus a hit flag after a first version returned only the contact distance)
+  - regression: `make -C PPO_Project test` → exit 0; `41 tests, 542 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T048 | P0 | depends: T047 | AC-006 | Add fire-solution features to the observation; done when: tests check length 148 with per-slot values matching the predictor.
 - [ ] T049 | P0 | depends: T047 | AC-022 | Add potential-based alignment shaping to the reward; done when: a fixture shows 0.5 · (γΦ' − Φ) with Φ' = 0 at death.
 - [ ] T050 | P0 | depends: T015 | AC-022 | Penalize ship time inside the 60 px edge band; done when: a fixture charges the penalty only inside the band.

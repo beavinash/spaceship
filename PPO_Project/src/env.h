@@ -213,6 +213,15 @@ void env_observe(const Env *env, int ship, float *obs);
  */
 int env_check_invariants(const Env *env, char *why, size_t why_size);
 
+/*
+ * Fire solution for a missile launched now from `ship` at live enemy `enemy`, replaying the exact
+ * tick rules for that missile and enemy alone (other missiles ignored, ship assumed still).
+ * Returns the horizontal offset between their centres at contact, or at the closest pass if it
+ * misses (0 = dead centre); sets *hit (if not NULL). FIRE_NO_SOLUTION for a dead ship or explosion.
+ */
+#define FIRE_NO_SOLUTION 1e9f
+float env_fire_solution(const Env *env, int ship, int enemy, int *hit);
+
 /* FNV-1a over gameplay state and RNG position, for replay and determinism checks. */
 uint64_t env_hash(const Env *env);
 

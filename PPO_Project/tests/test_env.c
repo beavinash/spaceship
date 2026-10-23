@@ -619,3 +619,63 @@ void test_env_invariants_hold_and_catch_corruption(void) {
     bad.stats.dropped_shots = 1;
     CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
 }
+
+/* Fire one missile from ship 0 at a lone enemy in a copy of env; report whether it hit. */
+static int fires_and_hits(const Env *start) {
+    Env env = *start;
+    ShipAction a[NUM_SHIPS] = {FIRE, IDLE, IDLE};
+    env_tick(&env, a);
+    a[0] = IDLE;
+    for (int t = 0; t < 400 && env.n_missiles > 0; t++) {
+        env_tick(&env, a);
+    }
+    return env.stats.hits[0] > 0;
+}
+
+void test_env_fire_solution_matches_real_missiles(void) {
+    int cases = 0, agree = 0, hits = 0;
+    for (int type = 0; type < 3; type++) {
+        for (float ex = 290.0f; ex <= 510.0f; ex += 7.0f) {
+            for (float ey = 100.0f; ey <= 650.0f; ey += 110.0f) {
+                for (int dir = -1; dir <= 1; dir += 2) {
+                    Env env;
+                    quiet_env(&env);
+                    env.ships[1].alive = env.ships[2].alive = 0; /* keep other ships out of the way */
+                    Enemy *e = env_add_enemy(&env, type, ex, ey);
+                    e->vx = 200.0f * (float)dir;
+                    int predicted = -1;
+                    float offset = env_fire_solution(&env, 0, 0, &predicted);
+                    int actual = fires_and_hits(&env);
+                    cases++;
+                    agree += predicted == actual && (!predicted || offset < MISSILE_RADIUS + ENEMY_RADIUS);
+                    hits += actual;
+                }
+            }
+        }
+    }
+    CHECK(cases == 3 * 32 * 6 * 2);
+    CHECK(agree == cases);
+    CHECK(hits > 20 && hits < cases - 20); /* the grid covers both hits and misses */
+
+    Env env;
+    quiet_env(&env);
+    env_add_enemy(&env, 0, 400.0f, 800.0f); /* below the ship: a missile can never meet it */
+    int hit = -1;
+    env_fire_solution(&env, 0, 0, &hit);
+    CHECK(hit == 0);
+    env.enemies[0].dead = 1;
+    CHECK(env_fire_solution(&env, 0, 0, &hit) >= FIRE_NO_SOLUTION && hit == 0);
+    env.ships[0].alive = 0;
+    env.enemies[0].dead = 0;
+    CHECK(env_fire_solution(&env, 0, 0, NULL) >= FIRE_NO_SOLUTION);
+
+    /* Straight above and still: a centred hit, so the horizontal offset at contact is ~0. */
+    quiet_env(&env);
+    Enemy *e = env_add_enemy(&env, 2, 385.0f, 400.0f); /* centre x 410 = missile centre x */
+    e->vx = 0.0f;
+    CHECK(env_fire_solution(&env, 0, 0, &hit) < 0.5f && hit == 1);
+    /* 50 px to the side and still: the missile passes 50 px away. */
+    e->x = 435.0f;
+    CHECK_NEAR(env_fire_solution(&env, 0, 0, &hit), 50.0, 0.5);
+    CHECK(hit == 0);
+}
