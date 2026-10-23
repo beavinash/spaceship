@@ -4,6 +4,7 @@ Status: Approved
 Approval evidence: On 2026-10-22 the user replied "PRD approved as drafted, including brew install of raylib/pkg-config/cjson and the 60-min-per-seed training budget. Build the whole sprint backlog." Earlier answers in chat chose everything in C (no Python, no PufferLib), three ships with separate networks, a score-plus-survival reward, and a raylib viewer.
 Amendment (2026-10-22, user-required): "make sure we have 200 as health for the ships and we do not have infinite ammo. these constraints are required." Ammo choice: "100 per ship, no refill" (its option text included a small per-shot cost). Compute: "We can use my modal.com account for 5-10 minutes of training once the code and smoke test is done", then "let's use and train 2 ships or seeds and one on my mac. first make sure it runs properly on local before modal.com run". These amendments are folded into sections 2–6 below.
 Amendment 2 (2026-10-22): pilots showed PPO learning to camp at the bottom corners and fire at random. Asked to adopt λ 0.99, alignment shaping and sampled evaluation, the user replied "yeah, let's work on alignment shaping properly first. also, if it's going bottom left or right then it's a problem. we have to make sure agents learn when to fire the missile instead of randomly firing every second or more. let's fix the issues first and we can just use mac for cpu related runs." Choices made in chat: "Edge penalty + alignment", "Fire-solution input", "20 min per seed". Modal is no longer used.
+Amendment 3 (2026-10-22): three minutes into the 20-minute seeds the user said "don't run anymore seeds as it's enough for now". The seed runs were stopped and discarded. The 10-minute pilot (seed 101) is the trained result. Its selected checkpoint is the one kept in git and evaluated once on the held-out split.
 Authoritative backlog: this document, section 5
 
 ## 1. Problem and users
@@ -160,6 +161,7 @@ Model quality (stochastic; measured separately from correctness):
 | --- | --- | --- |
 | AC-018 | Seeds 1–3 each train 20 min on this Mac with complete metrics and a selected checkpoint | run directories |
 | AC-019 | One test-split report per selected checkpoint against both baselines, with MQ-1 to MQ-4 recorded as pass or fail | `eval --split test` reports |
+| AC-025 | Git holds code, tests, docs, and only selected checkpoints (plus a short index); logs, metrics, reports, build output, and periodic checkpoints stay ignored (user request: "commit the most important code, checkpoints, PPO code, instead of logs and build files") | `git ls-files` |
 | AC-024 | A 10-minute pilot with the new defaults records edge time, accuracy, and predicted-hit shot share against random before the official seeds | pilot report |
 
 Commands (created by T001/T040): `make -C PPO_Project test`, `make -C PPO_Project sanitize`, `make -C PPO_Project analyze`. Dependency audit: the core has no third-party code; the Homebrew packages raylib and cJSON are recorded by version in the README.
@@ -418,13 +420,20 @@ Review scope: PPO_Project/
   - regression: `make -C PPO_Project test` → exit 0; `47 tests, 589 checks, 0 failed checks, 0 failed tests`; `make -C PPO_Project viewer-check` → exit 0
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: raylib 6.2 (Homebrew)
 - [ ] T042 | P1 | depends: T031, T036, T053 | AC-018 | Train seed 1 on this Mac for 20 minutes; done when: its run directory holds full metrics plus a selected checkpoint.
+  - deferred: stopped by the user after 172 s ("don't run anymore seeds as it's enough for now"); the partial run was discarded.
 - [x] T045 | P1 | depends: T036 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.
   - red: `sh scripts/container_train.sh build/container-check 7 4096 30` → exit 127; `sh: scripts/container_train.sh: No such file or directory`
   - green: `sh scripts/container_train.sh runs/container-check 7 4096 30 --checkpoint-every 1` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`, `smoke: ok`, `"status":"completed"`, `archive: runs/container-check.tar.gz (3.0M)` holding manifest, metrics, checkpoints, selection, logs
   - regression: the script itself runs the full suite: `40 tests, 533 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings` (shell script not covered; no shellcheck installed)
 - [ ] T046 | P1 | depends: T045, T053 | AC-018 | Train seeds 2–3 on this Mac for 20 minutes each; done when: both run directories hold full metrics plus a selected checkpoint.
-- [ ] T043 | P1 | depends: T042, T046, T035 | AC-019 | Evaluate selected checkpoints once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
+  - deferred: stopped with T042 at the user's request.
+- [x] T055 | P1 | depends: T053 | AC-025 | Keep the pilot's selected checkpoint in `checkpoints/` with a small index; done when: git tracks that checkpoint plus the index, never logs or periodic checkpoints.
+  - red: `git ls-files PPO_Project/checkpoints` → no files (`0 tracked checkpoint files`)
+  - green: `git ls-files PPO_Project/checkpoints` → `PPO_Project/checkpoints/index.json` and `PPO_Project/checkpoints/ppo_seed101.bin` (868,096 bytes); reloading it reproduces `team score 119.30 +/- 10.29, deaths 0.00` on dev
+  - regression: `git ls-files PPO_Project` lists no files under runs/ or build/ (both still ignored)
+  - scans: not applicable (data and docs only)
+- [ ] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
 
 ## 6. Open questions
 

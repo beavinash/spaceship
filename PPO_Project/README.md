@@ -30,11 +30,18 @@ make viewer-check  # renders a frame headlessly and checks ships, enemies, missi
 ./build/ppo eval --policy ppo --checkpoint runs/seed1/selected.bin --output runs/seed1/dev.json
 ./build/ppo eval --policy random --output runs/dev-random.json
 ./build/ppo eval --policy legacy --output runs/dev-legacy.json
-make viewer && ./build/viewer --policy ppo --checkpoint runs/seed1/selected.bin
+make viewer && ./build/viewer --policy ppo --checkpoint checkpoints/ppo_seed101.bin
+```
+
+To watch a run while it trains, follow it. Each new episode plays the run's newest checkpoint, and finished episodes roll on to the next scenario:
+
+```sh
+./build/viewer --run-dir runs/seed1
 ```
 
 `scripts/container_train.sh RUN_DIR SEED DECISIONS SECONDS` runs the whole pipeline for one seed: build, tests, smoke, train, select, and a `.tar.gz` of the run.
 
+- **What is committed.** Git holds the code, tests, docs, and the selected checkpoints in `checkpoints/`, described in `checkpoints/index.json`. Today that is `ppo_seed101.bin`, the 10-minute run. Everything under `runs/` and `build/` stays local and ignored: logs, metrics, reports, and periodic checkpoints.
 - **Run directory.** `train` writes `manifest.json` (git commit, full configuration, final status), `metrics.csv` (one row per update), `checkpoints/update_NNNNNN.bin` and `final.bin`. `select` scores every checkpoint on the dev scenarios and adds `selection.json` and `selected.bin`.
 - **Selection rule.** Highest mean team score, then fewer deaths, then the earlier update.
 - **Evaluation.** PPO is evaluated by sampling from the policy with a per-scenario seed, so results are reproducible. `--greedy` takes the most likely action instead, but that proved unstable for these policies.

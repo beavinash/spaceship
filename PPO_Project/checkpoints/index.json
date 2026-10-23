@@ -1,0 +1,24 @@
+{
+  "about": "Selected PPO checkpoints worth keeping. Load with: ./build/ppo eval --policy ppo --checkpoint checkpoints/<file>",
+  "checkpoints": [
+    {
+      "file": "ppo_seed101.bin",
+      "seed": 101,
+      "update": 1854,
+      "decisions": 3796992,
+      "training_seconds": 600,
+      "code": "5513b14 (manifest says c2928fc-dirty: built from the T052 tree just before that commit)",
+      "networks": "3 ships x (actor 148-128-128-8, critic 148-128-128-1)",
+      "selected_on": "dev scenarios 1000-1019, sampled actions, max mean team score",
+      "dev": {
+        "team_score": 119.3,
+        "kills": 26.05,
+        "accuracy": 0.283,
+        "aimed_shot_share": 0.243,
+        "edge_share": 0.028,
+        "deaths": 0.0
+      },
+      "sha256": "9953429e3d23cc516b83e3a1f74f898f618df6e054dfb560941392c4b107aebc"
+    }
+  ]
+}
