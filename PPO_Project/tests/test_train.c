@@ -1,0 +1,77 @@
+#include <stdlib.h>
+#include <string.h>
+
+#include "check.h"
+#include "train.h"
+
+#define DOCUMENTED_COLUMNS                                                                                      \
+    "update,decisions,seconds,decisions_per_sec,lr,episodes,ep_return_mean,ep_return_ship0,ep_return_ship1,"    \
+    "ep_return_ship2,team_score,kills,hits,shots,accuracy,damage_taken,deaths,escapes,spawned,ep_seconds,"      \
+    "pg_loss,v_loss,entropy,approx_kl,clipfrac,explained_var,grad_norm"
+
+static int count_fields(const char *line) {
+    int n = 1;
+    for (const char *p = line; *p && *p != '\n'; p++) {
+        n += *p == ',';
+    }
+    return n;
+}
+
+void test_train_run_writes_metrics_csv(void) {
+    RunConfig rc = run_config_default();
+    rc.train.envs = 2;
+    rc.train.steps = 16;
+    rc.train.hidden = 16;
+    rc.train.seed = 3u;
+    rc.train.episode_ticks = 32; /* 8 decisions, so episodes finish inside the smoke run */
+    rc.total_decisions = 2 * 2 * 16;
+    rc.max_seconds = 60.0;
+    rc.run_dir = "build/test-run";
+    remove("build/test-run/metrics.csv");
+    CHECK(train_run(&rc) == 0);
+
+    FILE *f = fopen("build/test-run/metrics.csv", "r");
+    CHECK(f != NULL);
+    if (!f) {
+        return;
+    }
+    char line[4096];
+    if (!fgets(line, sizeof line, f)) {
+        CHECK(!"metrics.csv has no header");
+        fclose(f);
+        return;
+    }
+    line[strcspn(line, "\n")] = '\0';
+    CHECK(strcmp(line, DOCUMENTED_COLUMNS) == 0);
+    int columns = count_fields(DOCUMENTED_COLUMNS);
+    int rows = 0;
+    double lr[2] = {0, 0};
+    long long decisions[2] = {0, 0};
+    double ep_return = 0.0, entropy = 0.0;
+    while (fgets(line, sizeof line, f)) {
+        CHECK(count_fields(line) == columns);
+        int update;
+        double seconds, sps;
+        if (rows < 2 && sscanf(line, "%d,%lld,%lf,%lf,%lf", &update, &decisions[rows], &seconds, &sps, &lr[rows]) == 5) {
+            CHECK(update == rows + 1);
+        }
+        char *field = line;
+        for (int c = 0; c < 6; c++) {
+            field = strchr(field, ',') + 1;
+        }
+        ep_return = strtod(field, NULL);
+        char *ent = line;
+        for (int c = 0; c < 22; c++) {
+            ent = strchr(ent, ',') + 1;
+        }
+        entropy = strtod(ent, NULL);
+        rows++;
+    }
+    fclose(f);
+    CHECK(rows == 2);
+    CHECK(decisions[0] == 32 && decisions[1] == 64);
+    CHECK_NEAR(lr[0], 3e-4, 1e-9);
+    CHECK_NEAR(lr[1], 1.5e-4, 1e-9); /* linear annealing over the planned 2 updates */
+    CHECK(isfinite(ep_return) && ep_return != 0.0);
+    CHECK(entropy > 0.0);
+}

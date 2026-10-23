@@ -303,7 +303,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=trainer_collects` → exit 0; `PASS trainer_collects_per_ship_rollouts`
   - regression: `make -C PPO_Project test` → exit 0; `31 tests, 370 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 14 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T029 | P0 | depends: T028 | AC-012 | Add a `train` command logging per-update CSV metrics; done when: a 2-update smoke run writes every documented column.
+- [x] T029 | P0 | depends: T028 | AC-012 | Add a `train` command logging per-update CSV metrics; done when: a 2-update smoke run writes every documented column.
+  - red: `make -C PPO_Project test T=metrics_csv` → exit 2; `tests/test_train.c:5:10: fatal error: 'train.h' file not found`
+  - green: `make -C PPO_Project test T=metrics_csv` → exit 0; `PASS train_run_writes_metrics_csv`; `make -C PPO_Project smoke` → exit 0 with the 27-column header and 2 rows
+  - regression: `make -C PPO_Project test` → exit 0; `32 tests, 383 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 17 files` after making the test stop on a missing header; dependency audit: unavailable (no third-party code in the core)
 - [ ] T030 | P1 | depends: T029, T022 | AC-012 | Write run manifests with periodic checkpoints; done when: a smoke run directory holds a manifest plus loadable checkpoints.
 - [ ] T031 | P1 | depends: T030 | AC-012 | Update the three ship networks on parallel pthreads; done when: threaded results match serial results bit for bit for a fixed seed.
 - [ ] T032 | P0 | depends: T017 | AC-013 | Add an `eval` command reporting per-seed metrics for the random policy; done when: a dev-split JSON report lists 20 seed rows with mean, std, 95% CI.

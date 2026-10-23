@@ -15,6 +15,7 @@ typedef struct {
     int envs;
     int steps;
     int hidden;
+    int episode_ticks; /* truncation limit per arena episode; EPISODE_TICKS (120 s) by default */
     uint64_t seed;
     RewardConfig reward;
     PpoConfig ppo;
@@ -23,20 +24,21 @@ typedef struct {
 /* Section 3.3 defaults: 16 arenas x 128 decisions, 128 hidden units. */
 TrainConfig train_config_default(void);
 
-/* Sums over episodes finished since the last trainer_take_episodes call. */
+/* One finished arena episode, for rolling training metrics. */
 typedef struct {
-    int episodes;
-    double ret[NUM_SHIPS];
-    double team_score;
-    double kills;
-    double hits;
-    double shots;
-    double damage;
-    double deaths;
-    double escapes;
-    double spawned;
-    double seconds;
-} EpisodeTotals;
+    float ret[NUM_SHIPS];
+    float team_score;
+    float kills;
+    float hits;
+    float shots;
+    float damage;
+    float deaths;
+    float escapes;
+    float spawned;
+    float seconds;
+} EpisodeRecord;
+
+#define EPISODE_WINDOW 32
 
 typedef struct {
     TrainConfig cfg;
@@ -50,7 +52,8 @@ typedef struct {
     float *logits;         /* envs x ACTION_LOGITS scratch */
     float *values;         /* envs scratch */
     long long decisions;   /* arena decisions collected so far */
-    EpisodeTotals finished;
+    long long episodes;    /* arena episodes finished so far */
+    EpisodeRecord recent[EPISODE_WINDOW]; /* the most recent finished episodes, ring-indexed by episodes */
 } Trainer;
 
 /* Returns 0, or -1 if memory runs out. */

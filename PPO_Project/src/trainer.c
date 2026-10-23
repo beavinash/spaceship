@@ -10,6 +10,7 @@ TrainConfig train_config_default(void) {
         .envs = 16,
         .steps = 128,
         .hidden = 128,
+        .episode_ticks = EPISODE_TICKS,
         .seed = 1,
         .reward = reward_config_default(),
         .ppo = ppo_config_default(),
@@ -21,6 +22,11 @@ TrainConfig train_config_default(void) {
 static uint64_t next_episode_seed(Trainer *tr) {
     uint64_t s = ((uint64_t)pcg32_next(&tr->seed_rng) << 32) | pcg32_next(&tr->seed_rng);
     return s < 100000u ? s + 100000u : s;
+}
+
+static void reset_arena(Trainer *tr, int n) {
+    env_reset(&tr->envs[n], next_episode_seed(tr));
+    tr->envs[n].max_ticks = tr->cfg.episode_ticks;
 }
 
 static void observe_all(Trainer *tr, int n) {
@@ -53,7 +59,7 @@ int trainer_init(Trainer *tr, const TrainConfig *cfg) {
         }
     }
     for (int n = 0; n < cfg->envs; n++) {
-        env_reset(&tr->envs[n], next_episode_seed(tr));
+        reset_arena(tr, n);
         observe_all(tr, n);
     }
     return 0;
@@ -71,21 +77,23 @@ void trainer_free(Trainer *tr) {
     memset(tr, 0, sizeof *tr);
 }
 
-static void add_episode(EpisodeTotals *tot, const Env *e) {
+static void add_episode(Trainer *tr, const Env *e) {
     const EpisodeStats *s = &e->stats;
-    tot->episodes++;
+    EpisodeRecord *rec = &tr->recent[tr->episodes % EPISODE_WINDOW];
+    memset(rec, 0, sizeof *rec);
     for (int k = 0; k < NUM_SHIPS; k++) {
-        tot->ret[k] += s->episode_return[k];
-        tot->team_score += s->score[k];
-        tot->kills += s->kills[k];
-        tot->hits += s->hits[k];
-        tot->shots += s->shots[k];
-        tot->damage += s->damage_taken[k];
-        tot->deaths += s->died[k];
+        rec->ret[k] = s->episode_return[k];
+        rec->team_score += (float)s->score[k];
+        rec->kills += (float)s->kills[k];
+        rec->hits += (float)s->hits[k];
+        rec->shots += (float)s->shots[k];
+        rec->damage += s->damage_taken[k];
+        rec->deaths += (float)s->died[k];
     }
-    tot->escapes += s->escapes;
-    tot->spawned += s->spawned;
-    tot->seconds += (double)e->tick / TICK_HZ;
+    rec->escapes = (float)s->escapes;
+    rec->spawned = (float)s->spawned;
+    rec->seconds = (float)e->tick / TICK_HZ;
+    tr->episodes++;
 }
 
 void trainer_collect(Trainer *tr) {
@@ -130,8 +138,8 @@ void trainer_collect(Trainer *tr) {
                 rollout_outcome(&tr->rollouts[k], t, n, rewards[k], done, bootstrap);
             }
             if (ended) {
-                add_episode(&tr->finished, e);
-                env_reset(e, next_episode_seed(tr));
+                add_episode(tr, e);
+                reset_arena(tr, n);
             }
             observe_all(tr, n);
         }
