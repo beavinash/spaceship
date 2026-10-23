@@ -132,7 +132,7 @@ Caveats:
 
 - **One seed.** This is a single training seed; seed-to-seed variation is unmeasured.
 - **Aiming.** The aimed-shot gain is small, and its confidence intervals touch.
-- **Escapes.** About 127 of ~150 spawned enemies still escape, because 300 missiles per episode cannot stop them all.
+- **Escapes.** About 127 of the 160 spawned enemies still escape, because 300 missiles per episode cannot stop them all.
 
 ## Files
 

@@ -378,7 +378,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project sanitize` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests` then `stress: 1000000 decisions, 279 episodes, peak 16/64 enemies, 28/64 missiles, 0 violations`
   - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → exit 0; `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T041 | P1 | depends: T033 | AC-017 | Document build, training, evaluation, viewing in the README; done when: every README command runs as written.
+- [x] T041 | P1 | depends: T033 | AC-017 | Document build, training, evaluation, viewing in the README; done when: every README command runs as written.
+  - red: unavailable (documentation task; strict red/green not demonstrable — the validation is running every README command)
+  - green: README command check → exit 0; `11 README commands ran, 1 skipped` (the skipped 20-minute training example matches the pilot's command with a different seed and duration; the interactive viewer lines ran in screenshot mode)
+  - regression: the README check itself ran `make test`, `make sanitize`, `make analyze`, `make smoke`, `make viewer-check`, all exit 0
+  - scans: `make analyze` → `analyze: 0 findings` (inside the README check)
 - [x] T047 | P0 | depends: T016 | AC-021 | Predict a missile's closest approach to a live enemy if fired now; done when: tests firing real missiles confirm every predicted hit or miss.
   - red: `make -C PPO_Project test T=fire_solution` → exit 2; `tests/test_env.c:646:34: error: call to undeclared function 'env_fire_solution'`
   - green: `make -C PPO_Project test T=fire_solution` → exit 0; `PASS env_fire_solution_matches_real_missiles` (1,152 grid cases agree with missiles fired in the real simulation; the return value became the horizontal offset plus a hit flag after a first version returned only the contact distance)
