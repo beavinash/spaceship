@@ -186,4 +186,13 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]);
  */
 void env_step(Env *env, const ShipAction actions[NUM_SHIPS]);
 
+/* Section 3.2 defaults: score + survival with a per-shot cost; ally sharing off. */
+RewardConfig reward_config_default(void);
+
+/*
+ * Per-ship reward for the last decision, a linear combination of that ship's events.
+ * Also adds each component to stats.parts and the total to stats.episode_return.
+ */
+void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]);
+
 #endif
