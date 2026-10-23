@@ -50,7 +50,7 @@
 #define MAX_ENEMIES 64
 #define MAX_MISSILES 64
 #define EPISODE_SECONDS 120
-#define MAX_DECISIONS (EPISODE_SECONDS * TICK_HZ / ACTION_REPEAT)
+#define EPISODE_TICKS (EPISODE_SECONDS * TICK_HZ)
 
 typedef struct {
     float health;
@@ -161,7 +161,7 @@ typedef struct {
     int tick;
     int decision;
     int spawn_timer;
-    int max_decisions;
+    int max_ticks; /* truncation limit; counted in ticks so any action repeat gets 120 s */
     int action_repeat;
     uint32_t next_enemy_id;
     uint32_t next_missile_id;
@@ -179,7 +179,11 @@ Enemy *env_add_enemy(Env *env, int type, float x, float y);
 /* Advance one physics tick, in upstream frame order, with each ship holding its action. */
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]);
 
-/* One policy decision: clear the per-decision events, then hold the actions for action_repeat ticks. */
+/*
+ * One policy decision: clear the per-decision events, then hold the actions for action_repeat ticks.
+ * Sets terminated when every ship is dead (checked first), otherwise truncated at max_ticks.
+ * A finished episode does not advance until env_reset.
+ */
 void env_step(Env *env, const ShipAction actions[NUM_SHIPS]);
 
 #endif

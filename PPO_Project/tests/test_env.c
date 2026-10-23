@@ -21,7 +21,7 @@ void test_env_reset_matches_upstream_ships(void) {
     CHECK(env.tick == 0);
     CHECK(env.decision == 0);
     CHECK(env.spawn_timer == 90);
-    CHECK(env.max_decisions == 3600);
+    CHECK(env.max_ticks == 14400); /* 120 s at 120 ticks/s = 3600 decisions of 4 ticks */
     CHECK(env.action_repeat == 4);
     CHECK(env.terminated == 0 && env.truncated == 0);
 }
@@ -372,4 +372,43 @@ void test_env_step_repeats_action_for_4_ticks(void) {
     env.action_repeat = 1;
     env_step(&env, a);
     CHECK(env.tick == 1 && env.decision == 1);
+}
+
+void test_env_episode_ends_terminated_or_truncated(void) {
+    Env env;
+    ShipAction a[NUM_SHIPS] = {IDLE, IDLE, IDLE};
+
+    quiet_env(&env);
+    env.max_ticks = 8;
+    env_step(&env, a);
+    CHECK(env.terminated == 0 && env.truncated == 0);
+    env_step(&env, a);
+    CHECK(env.terminated == 0 && env.truncated == 1);
+    env_step(&env, a); /* finished episodes do not advance until reset */
+    CHECK(env.tick == 8 && env.decision == 2);
+
+    quiet_env(&env);
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        env.ships[i].health = 1.0f;
+        frozen_enemy(&env, 0, env.ships[i].x, env.ships[i].y);
+    }
+    env_step(&env, a);
+    CHECK(env.terminated == 1 && env.truncated == 0);
+    CHECK(env.tick == 1); /* the decision stops at the tick the last ship dies */
+
+    quiet_env(&env);
+    env.max_ticks = 4;
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        env.ships[i].health = 1.0f;
+        frozen_enemy(&env, 0, env.ships[i].x, env.ships[i].y);
+    }
+    env_step(&env, a);
+    CHECK(env.terminated == 1 && env.truncated == 0); /* team defeat takes precedence */
+
+    quiet_env(&env);
+    env.ships[0].alive = 0;
+    env.ships[1].alive = 0;
+    env.max_ticks = 4;
+    env_step(&env, a);
+    CHECK(env.terminated == 0 && env.truncated == 1); /* one survivor keeps the episode going */
 }

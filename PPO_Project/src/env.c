@@ -24,7 +24,7 @@ void env_reset(Env *env, uint64_t seed) {
         s->weapon_cd = 0;
     }
     env->spawn_timer = ENEMY_SPAWN_TICKS;
-    env->max_decisions = MAX_DECISIONS;
+    env->max_ticks = EPISODE_TICKS;
     env->action_repeat = ACTION_REPEAT;
     env->next_enemy_id = 1;
     env->next_missile_id = 1;
@@ -290,10 +290,26 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     env->tick++;
 }
 
+static int team_alive(const Env *env) {
+    int alive = 0;
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        alive += env->ships[i].alive;
+    }
+    return alive;
+}
+
 void env_step(Env *env, const ShipAction actions[NUM_SHIPS]) {
+    if (env->terminated || env->truncated) {
+        return;
+    }
     memset(env->events, 0, sizeof env->events);
-    for (int t = 0; t < env->action_repeat; t++) {
+    for (int t = 0; t < env->action_repeat && team_alive(env) && env->tick < env->max_ticks; t++) {
         env_tick(env, actions);
     }
     env->decision++;
+    if (!team_alive(env)) {
+        env->terminated = 1;
+    } else if (env->tick >= env->max_ticks) {
+        env->truncated = 1;
+    }
 }

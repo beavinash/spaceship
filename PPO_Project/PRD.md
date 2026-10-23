@@ -228,7 +228,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=repeats` → exit 0; `PASS env_step_repeats_action_for_4_ticks`
   - regression: `make -C PPO_Project test` → exit 0; `15 tests, 158 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T014 | P0 | depends: T013 | AC-004 | End episodes on team death or the 120 s limit; done when: tests distinguish terminated from truncated flags.
+- [x] T014 | P0 | depends: T013 | AC-004 | End episodes on team death or the 120 s limit; done when: tests distinguish terminated from truncated flags.
+  - red: `make -C PPO_Project test T=terminated` → exit 2; `tests/test_env.c:382:9: error: no member named 'max_ticks' in 'Env'`
+  - green: `make -C PPO_Project test T=terminated` → exit 0; `PASS env_episode_ends_terminated_or_truncated`
+  - regression: `make -C PPO_Project test` → exit 0; `16 tests, 165 checks, 0 failed checks, 0 failed tests` (T002 now asserts max_ticks == 14400 instead of max_decisions)
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T015 | P0 | depends: T014, T012 | AC-005 | Compute per-ship rewards from configurable event coefficients; done when: a scripted-event fixture yields hand-computed rewards with matching component totals.
 - [ ] T016 | P0 | depends: T014 | AC-006 | Encode ego-centric observations with nearest-first entity slots; done when: tests check length 139, [−1, 1] bounds, ordering, zero padding.
 - [ ] T017 | P0 | depends: T016 | AC-003 | Verify deterministic replay of seeded episodes; done when: identical seeds plus actions give identical state hashes over 10,000 ticks.
