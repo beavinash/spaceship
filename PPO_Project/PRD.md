@@ -213,7 +213,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=contact` → exit 0; `PASS env_contact_damage_respects_enemy_cooldown`
   - regression: `make -C PPO_Project test` → exit 0; `12 tests, 132 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T011 | P0 | depends: T010 | AC-004 | Remove ships from physics once health reaches zero; done when: a dead ship ignores actions, cannot fire, takes no damage.
+- [x] T011 | P0 | depends: T010 | AC-004 | Remove ships from physics once health reaches zero; done when: a dead ship ignores actions, cannot fire, takes no damage.
+  - red: `make -C PPO_Project test T=dies` → exit 2; `tests/test_env.c:317: CHECK(env.ships[0].alive == 0) failed`
+  - green: `make -C PPO_Project test T=dies` → exit 0; `PASS env_ship_dies_at_zero_health`
+  - regression: `make -C PPO_Project test` → exit 0; `13 tests, 144 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T012 | P0 | depends: T007 | AC-002 | Count live enemies escaping below the arena; done when: the counter rises once per live enemy crossing y > 1000, never for explosions.
 - [ ] T013 | P0 | depends: T011 | AC-004 | Step policy decisions with a 4-tick action repeat; done when: one decision advances exactly 4 ticks with the action held.
 - [ ] T014 | P0 | depends: T013 | AC-004 | End episodes on team death or the 120 s limit; done when: tests distinguish terminated from truncated flags.

@@ -307,3 +307,26 @@ void test_env_contact_damage_respects_enemy_cooldown(void) {
     hold(&env, IDLE, IDLE, IDLE, 36);
     CHECK_NEAR(env.ships[0].health, 198.0f, 0.0);
 }
+
+void test_env_ship_dies_at_zero_health(void) {
+    Env env;
+    quiet_env(&env);
+    env.ships[0].health = 3.0f;
+    frozen_enemy(&env, 2, 400.0f, 700.0f); /* 10 damage, more than the ship has left */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.ships[0].alive == 0);
+    CHECK(env.stats.died[0] == 1);
+    CHECK(env.events[0].died == 1);
+    CHECK_NEAR(env.stats.damage_taken[0], 3.0f, 0.0); /* loss clamped to the health that was left */
+    CHECK(env.stats.alive_ticks[0] == 0);
+
+    ShipAction go = {H_LEFT, V_UP, 1};
+    hold(&env, go, IDLE, IDLE, 400);
+    CHECK_NEAR(env.ships[0].x, 400.0f, 0.0);
+    CHECK_NEAR(env.ships[0].y, 700.0f, 0.0);
+    CHECK(env.n_missiles == 0 && env.stats.shots[0] == 0);
+    CHECK_NEAR(env.stats.damage_taken[0], 3.0f, 0.0);
+    CHECK(env.stats.died[0] == 1 && env.events[0].died == 1);
+    CHECK(env.stats.alive_ticks[1] == 401);
+    CHECK(env.ships[1].alive == 1);
+}

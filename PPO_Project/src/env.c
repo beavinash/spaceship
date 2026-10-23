@@ -227,6 +227,14 @@ static void resolve_contacts(Env *env) {
                 env->events[i].health_lost += lost;
                 env->stats.damage_taken[i] += lost;
                 e->attack_cd_left = e->attack_cd_ticks;
+                if (s->health <= 0.0f) {
+                    /* Upstream parks a dead ship off-screen; here it simply leaves the physics. */
+                    s->health = 0.0f;
+                    s->alive = 0;
+                    env->events[i].died = 1;
+                    env->stats.died[i] = 1;
+                    break;
+                }
             }
         }
     }
@@ -253,5 +261,8 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     move_enemies(env);
     cool_down_enemies(env);
     move_missiles(env);
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        env->stats.alive_ticks[i] += env->ships[i].alive;
+    }
     env->tick++;
 }
