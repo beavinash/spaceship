@@ -10,6 +10,11 @@ ifneq ($(CJSON_LIBS),)
 CPPFLAGS += -DHAVE_CJSON $(shell pkg-config --cflags libcjson)
 LDLIBS += $(CJSON_LIBS)
 endif
+RAYLIB_CFLAGS := $(shell pkg-config --cflags raylib 2>/dev/null)
+RAYLIB_LIBS := $(shell pkg-config --libs raylib 2>/dev/null)
+ifeq ($(shell uname),Darwin)
+RAYLIB_LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo -framework CoreFoundation
+endif
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)$(shell test -n "$$(git status --porcelain -- . 2>/dev/null)" && echo -dirty)
 
 BUILD := build
@@ -17,7 +22,7 @@ HEADERS := $(wildcard src/*.h tests/*.h tests/*.def)
 CORE_SRC := $(filter-out src/main.c src/viewer.c,$(wildcard src/*.c))
 TEST_SRC := $(wildcard tests/*.c)
 
-.PHONY: all test smoke sanitize analyze clean
+.PHONY: all test smoke sanitize analyze viewer viewer-check clean
 
 all: $(BUILD)/test_runner $(BUILD)/ppo
 
@@ -29,6 +34,17 @@ $(BUILD)/test_runner: $(TEST_SRC) $(CORE_SRC) $(HEADERS) | $(BUILD)
 
 $(BUILD)/ppo: src/main.c $(CORE_SRC) $(HEADERS) | $(BUILD)
 	$(CC) $(CPPFLAGS) -DPPO_GIT_COMMIT='"$(GIT_COMMIT)"' $(CFLAGS) src/main.c $(CORE_SRC) -o $@ $(LDLIBS)
+
+# The viewer needs raylib (brew install raylib pkg-config); nothing else does.
+viewer: $(BUILD)/viewer
+
+$(BUILD)/viewer: src/viewer.c $(CORE_SRC) $(HEADERS) | $(BUILD)
+	$(CC) $(CPPFLAGS) $(RAYLIB_CFLAGS) $(CFLAGS) src/viewer.c $(CORE_SRC) -o $@ $(LDLIBS) $(RAYLIB_LIBS)
+
+# Renders 300 frames of dev scenario 1000 to build/viewer-check.png; the viewer exits non-zero
+# unless ships, enemies, and missiles are on screen and the image is not blank.
+viewer-check: $(BUILD)/viewer
+	./$(BUILD)/viewer --seed 1000 --frames 300 --screenshot $(BUILD)/viewer-check.png
 
 test: $(BUILD)/test_runner
 	./$(BUILD)/test_runner $(T)
@@ -51,8 +67,8 @@ sanitize: | $(BUILD)
 
 # Clang static analyzer over every source and test file; fails on any finding.
 analyze:
-	@status=0; for f in $(CORE_SRC) src/main.c $(TEST_SRC); do \
-		out=$$(clang --analyze $(CPPFLAGS) -std=c11 -Xanalyzer -analyzer-output=text $$f -o /dev/null 2>&1); \
+	@status=0; for f in $(CORE_SRC) src/main.c $(if $(RAYLIB_LIBS),src/viewer.c) $(TEST_SRC); do \
+		out=$$(clang --analyze $(CPPFLAGS) $(RAYLIB_CFLAGS) -std=c11 -Xanalyzer -analyzer-output=text $$f -o /dev/null 2>&1); \
 		if printf '%s' "$$out" | grep -q 'warning:'; then printf '%s\n' "$$out"; status=1; fi; \
 	done; \
 	if [ $$status -eq 0 ]; then echo "analyze: 0 findings"; fi; exit $$status

@@ -343,7 +343,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=select_best` → exit 0; `PASS select_best_breaks_ties_deterministically`
   - regression: `make -C PPO_Project test` → exit 0; `39 tests, 523 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 23 files` after reworking two stream reads; dependency audit: unavailable (no third-party code in the core)
-- [ ] T037 | P1 | depends: T017 | AC-015 | Render the arena with original artwork in raylib; done when: `viewer --screenshot` saves a PNG showing ships, enemies, missiles.
+- [x] T037 | P1 | depends: T017 | AC-015 | Render the arena with original artwork in raylib; done when: `viewer --screenshot` saves a PNG showing ships, enemies, missiles.
+  - red: `make -C PPO_Project viewer-check` → exit 2; `make: *** No rule to make target \`viewer-check'.  Stop.`
+  - green: `make -C PPO_Project viewer-check` → exit 0; `screenshot: build/viewer-check.png 1000x1000, 17091 lit pixels, 3 ships, 9 enemies, 17 missiles`; image inspected: original ship, alien, explosion and missile sprites
+  - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` (now including src/viewer.c) → `analyze: 0 findings`; dependency audit: raylib 6.2 (Homebrew, `pkg-config --modversion raylib`), viewer only
 - [ ] T038 | P1 | depends: T037, T033 | AC-015 | Drive viewer ships from checkpoints or baselines; done when: `viewer --policy ppo --checkpoint PATH --screenshot` exits 0 with an image.
 - [ ] T039 | P2 | depends: T038 | AC-015 | Show per-ship score, health, kills in a HUD with pause/speed keys; done when: a screenshot shows the HUD text.
 - [x] T040 | P1 | depends: T017 | AC-016 | Add sanitizer plus static-analysis Makefile targets; done when: both targets report zero findings over tests plus 1M random decisions.
