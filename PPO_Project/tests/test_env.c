@@ -720,3 +720,71 @@ void test_env_observation_fire_solution_features(void) {
     CHECK_NEAR(env_shot_quality(&env, 0, &hit), 1.0 - 50.0 / SHOT_RAMP, 0.01);
     CHECK(hit == 0);
 }
+
+void test_env_alignment_shaping_is_potential_based(void) {
+    RewardConfig cfg = reward_config_default();
+    CHECK_NEAR(cfg.align, 0.5, 1e-7);
+    CHECK_NEAR(cfg.gamma, 0.99, 1e-7);
+    Env env;
+    float r[NUM_SHIPS];
+    int hit;
+
+    /* Step 1: an enemy is held dead centre above ship 0, so Phi goes 0 -> q. */
+    quiet_env(&env);
+    Enemy *e = env_add_enemy(&env, 2, 385.0f, 300.0f);
+    e->vx = 0.0f;
+    e->vy = 0.0f;
+    e->accel = 0.0f;
+    ShipAction idle[NUM_SHIPS] = {IDLE, IDLE, IDLE};
+    env_step(&env, idle);
+    float q1 = env_shot_quality(&env, 0, &hit);
+    CHECK(q1 > 0.9f);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * q1, 1e-5);
+
+    /* Step 2: the enemy moves out of reach, so Phi goes q -> 0. */
+    env.enemies[0].x = 800.0f;
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * q1 - 0.5 * q1, 1e-5);
+
+    /* No ammo means no shot: Phi is 0 even when lined up. */
+    env.enemies[0].x = 385.0f;
+    env.ships[0].ammo = 0;
+    float before = env.stats.parts[0].align;
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.stats.parts[0].align, before, 1e-6);
+
+    /* Death is terminal for the ship: Phi' = 0, so the shaping returns -0.5 * Phi. */
+    quiet_env(&env);
+    e = env_add_enemy(&env, 2, 385.0f, 300.0f);
+    e->vx = e->vy = e->accel = 0.0f;
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    float q = env_shot_quality(&env, 0, &hit);
+    before = env.stats.parts[0].align;
+    env.ships[0].health = 1.0f;
+    frozen_enemy(&env, 0, env.ships[0].x, env.ships[0].y);
+    env_step(&env, idle);
+    CHECK(!env.ships[0].alive);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.stats.parts[0].align - before, -0.5 * q, 1e-5);
+
+    /* With gamma = 1 the shaping telescopes over an episode: sum = 0.5 * (Phi_end - Phi_0), Phi_0 = 0. */
+    cfg.gamma = 1.0f;
+    env_reset(&env, 77u);
+    env.max_ticks = 2400;
+    Pcg32 policy;
+    pcg32_seed(&policy, 8u, 1u);
+    while (!env.terminated && !env.truncated) {
+        ShipAction a[NUM_SHIPS];
+        random_actions(&policy, a);
+        env_step(&env, a);
+        env_rewards(&env, &cfg, r);
+    }
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        float end = env.ships[i].alive && env.ships[i].ammo > 0 ? env_shot_quality(&env, i, &hit) : 0.0f;
+        CHECK_NEAR(env.stats.parts[i].align, 0.5 * end, 1e-4);
+    }
+}

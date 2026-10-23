@@ -134,6 +134,8 @@ typedef struct {
     float death;
     float escape;
     float ally_share;
+    float align; /* potential-based shaping weight on the best shot quality */
+    float gamma; /* shaping discount; must equal the learner's gamma */
 } RewardConfig;
 
 /* Reward components summed over an episode, per ship. */
@@ -145,6 +147,7 @@ typedef struct {
     float death;
     float escape;
     float ally;
+    float align;
 } RewardParts;
 
 typedef struct {
@@ -179,6 +182,7 @@ typedef struct {
     uint32_t next_enemy_id;
     uint32_t next_missile_id;
     ShipEvents events[NUM_SHIPS];
+    float potential[NUM_SHIPS]; /* shaping potential after the last env_rewards call */
     EpisodeStats stats;
     int terminated;
     int truncated;
@@ -235,7 +239,9 @@ uint64_t env_hash(const Env *env);
 RewardConfig reward_config_default(void);
 
 /*
- * Per-ship reward for the last decision, a linear combination of that ship's events.
+ * Per-ship reward for the last decision: a linear combination of that ship's events plus
+ * potential-based alignment shaping align * (gamma * Phi(s') - Phi(s)), where Phi is the best shot
+ * quality with ammo left and 0 once the ship is dead. Call once after every env_step.
  * Also adds each component to stats.parts and the total to stats.episode_return.
  */
 void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]);

@@ -321,8 +321,8 @@ int eval_write_json(const char *path, const ReportMeta *meta, const Policy *p, c
             NUM_SHIPS, SHIP_HEALTH, SHIP_AMMO, EPISODE_SECONDS, TICK_HZ);
     fprintf(f,
             "  \"reward\": {\"kill_points\": %g, \"hit\": %g, \"shot\": %g, \"damage\": %g, \"death\": %g, "
-            "\"escape\": %g, \"ally_share\": %g},\n",
-            rc.kill_points, rc.hit, rc.shot, rc.damage, rc.death, rc.escape, rc.ally_share);
+            "\"escape\": %g, \"ally_share\": %g, \"align\": %g},\n",
+            rc.kill_points, rc.hit, rc.shot, rc.damage, rc.death, rc.escape, rc.ally_share, rc.align);
     fputs("  \"summary\": {\n", f);
     for (int m = 0; m < N_METRICS; m++) {
         Summary s = summarize(res, n, METRICS[m].offset);

@@ -387,7 +387,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=observation` → exit 0; `PASS env_observation_fire_solution_features` with `PASS env_observation_layout_and_bounds` (layout test updated to 148 floats)
   - regression: `make -C PPO_Project test` → exit 0; `42 tests, 551 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T049 | P0 | depends: T047 | AC-022 | Add potential-based alignment shaping to the reward; done when: a fixture shows 0.5 · (γΦ' − Φ) with Φ' = 0 at death.
+- [x] T049 | P0 | depends: T047 | AC-022 | Add potential-based alignment shaping to the reward; done when: a fixture shows 0.5 · (γΦ' − Φ) with Φ' = 0 at death.
+  - red: `make -C PPO_Project test T=alignment_shaping` → exit 2; `tests/test_env.c:726:20: error: no member named 'align' in 'RewardConfig'`
+  - green: `make -C PPO_Project test T=alignment_shaping` → exit 0; `PASS env_alignment_shaping_is_potential_based` (fixtures for gain, loss, no-ammo and death, plus the γ = 1 telescoping check over a full episode)
+  - regression: `make -C PPO_Project test` → exit 0; `43 tests, 562 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T050 | P0 | depends: T015 | AC-022 | Penalize ship time inside the 60 px edge band; done when: a fixture charges the penalty only inside the band.
 - [ ] T051 | P1 | depends: T048, T050 | AC-023 | Report edge-time share with predicted-hit shot share in metrics; done when: CSV plus JSON tests find both values.
 - [ ] T052 | P1 | depends: T049 | AC-024 | Default to λ 0.99 with sampled evaluation; done when: a defaults test passes while `eval --greedy` still works.

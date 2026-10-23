@@ -332,6 +332,8 @@ RewardConfig reward_config_default(void) {
         .death = -2.0f,
         .escape = -0.05f,
         .ally_share = 0.0f,
+        .align = 0.5f,
+        .gamma = 0.99f,
     };
     return cfg;
 }
@@ -339,6 +341,9 @@ RewardConfig reward_config_default(void) {
 void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
     for (int i = 0; i < NUM_SHIPS; i++) {
         const ShipEvents *ev = &env->events[i];
+        const Ship *s = &env->ships[i];
+        int hit;
+        float phi = s->alive && s->ammo > 0 ? env_shot_quality(env, i, &hit) : 0.0f;
         RewardParts part = {
             .kill = cfg->kill_points * (float)ev->kill_points,
             .hit = cfg->hit * (float)ev->hits,
@@ -347,8 +352,10 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
             .death = cfg->death * (float)ev->died,
             .escape = cfg->escape * (float)ev->escapes,
             .ally = cfg->ally_share * cfg->kill_points * (float)ev->ally_kill_points,
+            .align = cfg->align * (cfg->gamma * phi - env->potential[i]),
         };
-        float r = part.kill + part.hit + part.shot + part.damage + part.death + part.escape + part.ally;
+        env->potential[i] = phi;
+        float r = part.kill + part.hit + part.shot + part.damage + part.death + part.escape + part.ally + part.align;
         RewardParts *sum = &env->stats.parts[i];
         sum->kill += part.kill;
         sum->hit += part.hit;
@@ -357,6 +364,7 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
         sum->death += part.death;
         sum->escape += part.escape;
         sum->ally += part.ally;
+        sum->align += part.align;
         env->stats.episode_return[i] += r;
         rewards[i] = r;
     }

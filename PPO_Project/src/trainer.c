@@ -40,6 +40,7 @@ static void observe_all(Trainer *tr, int n) {
 int trainer_init(Trainer *tr, const TrainConfig *cfg) {
     memset(tr, 0, sizeof *tr);
     tr->cfg = *cfg;
+    tr->cfg.reward.gamma = cfg->ppo.gamma; /* potential-based shaping must discount like the learner */
     pcg32_seed(&tr->seed_rng, cfg->seed, 0x5eed5u);
     Pcg32 init_rng;
     pcg32_seed(&init_rng, cfg->seed, 0x1417u);
