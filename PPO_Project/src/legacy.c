@@ -40,6 +40,43 @@ ShipAction legacy_compute_action(const float h[3], const float v[3], float shoot
     return a;
 }
 
+static float target_score(const Ship *s, const Enemy *e, const LegacyTables *t) {
+    float dx = s->x - e->x, dy = s->y - e->y; /* upstream: ship position minus enemy position (top-left) */
+    float dist = sqrtf(dx * dx + dy * dy);
+    int x, y;
+    legacy_cell(dx, dy, &x, &y);
+    return t->shoot[x][y] * (float)e->points / dist;
+}
+
+void legacy_targets(const Env *env, LegacyTables *const tables[NUM_SHIPS], int targets[NUM_SHIPS]) {
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        targets[i] = -1;
+    }
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        const Ship *s = &env->ships[i];
+        if (!s->alive) {
+            continue;
+        }
+        for (int k = 0; k < env->n_enemies; k++) {
+            const Enemy *e = &env->enemies[k];
+            int taken = 0;
+            for (int j = 0; j < i; j++) {
+                taken |= targets[j] == k;
+            }
+            if (e->dead || taken) {
+                continue;
+            }
+            if (targets[i] < 0 ||
+                target_score(s, e, tables[i]) > target_score(s, &env->enemies[targets[i]], tables[i])) {
+                targets[i] = k;
+            }
+        }
+        for (int d = 1; targets[i] < 0 && d < NUM_SHIPS; d++) {
+            targets[i] = targets[(i + d) % NUM_SHIPS];
+        }
+    }
+}
+
 void legacy_free(LegacyTables *t) {
     free(t);
 }

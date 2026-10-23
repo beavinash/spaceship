@@ -27,6 +27,14 @@ void legacy_free(LegacyTables *t);
 /* Upstream Normalize: grid cell of a displacement in pixels. */
 void legacy_cell(float dx, float dy, int *x, int *y);
 
+/*
+ * Upstream Find_Best_Probability_Target then Help_Ally, ship by ship in index order: each alive ship
+ * takes the live enemy maximising shoot probability x points / distance among enemies not already
+ * locked by a lower-index ship; with none free it borrows the first locked target of ship i+1, i+2
+ * (mod 3), which this frame can only be a lower-index ship's. targets[] holds enemy indices or -1.
+ */
+void legacy_targets(const Env *env, LegacyTables *const tables[NUM_SHIPS], int targets[NUM_SHIPS]);
+
 /* Upstream Compute_Action with its three 1..100 draws (vertical, horizontal, shoot, in that order). */
 ShipAction legacy_compute_action(const float h[3], const float v[3], float shoot, int vert_draw, int hori_draw,
                                  int shoot_draw);

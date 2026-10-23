@@ -333,7 +333,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=legacy` → exit 0; `PASS legacy_tables_reproduce_upstream_lookups` (reference probabilities read independently with Python's json module)
   - regression: `make -C PPO_Project test` → exit 0; `37 tests, 501 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 21 files` after checking the file-size seek/tell results; dependency audit: cJSON 1.7.19 (Homebrew, `pkg-config --modversion libcjson`), optional, used only by the legacy baseline
-- [ ] T035 | P1 | depends: T034 | AC-014 | Port upstream target locking for the legacy policy; done when: a fixture matches upstream target choice, including ally fallback.
+- [x] T035 | P1 | depends: T034 | AC-014 | Port upstream target locking for the legacy policy; done when: a fixture matches upstream target choice, including ally fallback.
+  - red: `make -C PPO_Project test T=legacy_target` → exit 2; `tests/test_legacy.c:84:5: error: call to undeclared function 'legacy_targets'`
+  - green: `make -C PPO_Project test T=legacy_target` → exit 0; `PASS legacy_target_locking_matches_upstream`; CLI: `legacy on dev (20 scenarios): team score 102.60 +/- 9.97, deaths 0.75 +/- 0.24`
+  - regression: `make -C PPO_Project test` → exit 0; `38 tests, 507 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 21 files`; dependency audit: cJSON 1.7.19 (Homebrew), optional
 - [ ] T036 | P1 | depends: T033 | AC-013 | Select the best checkpoint on development seeds; done when: selection picks the highest mean team score with deterministic tie-breaking.
 - [ ] T037 | P1 | depends: T017 | AC-015 | Render the arena with original artwork in raylib; done when: `viewer --screenshot` saves a PNG showing ships, enemies, missiles.
 - [ ] T038 | P1 | depends: T037, T033 | AC-015 | Drive viewer ships from checkpoints or baselines; done when: `viewer --policy ppo --checkpoint PATH --screenshot` exits 0 with an image.

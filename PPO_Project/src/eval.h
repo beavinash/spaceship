@@ -30,6 +30,15 @@ void policy_random(Policy *p);
  */
 int policy_ppo(Policy *p, const char *checkpoint, int sample);
 
+/*
+ * Upstream main's frozen logistic-regression tables, one per ship (Game_Data/trained{0,1,2}.json
+ * under game_data_dir), deciding every tick as upstream does. Returns 0, or -1 if a file is unreadable.
+ */
+int policy_legacy(Policy *p, const char *game_data_dir);
+
+/* The same policy over caller-owned tables (not freed by policy_free). */
+void policy_legacy_tables(Policy *p, void *const tables[NUM_SHIPS]);
+
 /* Releases what a policy constructor allocated. */
 void policy_free(Policy *p);
 

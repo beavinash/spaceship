@@ -6,7 +6,13 @@
 #include <string.h>
 
 #include "dist.h"
+#include "legacy.h"
 #include "trainer.h"
+
+typedef struct {
+    LegacyTables *tables[NUM_SHIPS];
+    int owned;
+} LegacyPolicy;
 
 void policy_random(Policy *p) {
     memset(p, 0, sizeof *p);
@@ -57,7 +63,48 @@ int policy_ppo(Policy *p, const char *checkpoint, int sample) {
     return 0;
 }
 
+void policy_legacy_tables(Policy *p, void *const tables[NUM_SHIPS]) {
+    memset(p, 0, sizeof *p);
+    LegacyPolicy *lp = calloc(1, sizeof *lp);
+    if (!lp) {
+        abort();
+    }
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        lp->tables[k] = tables[k];
+    }
+    p->kind = POLICY_LEGACY;
+    p->name = "legacy";
+    p->action_repeat = 1;
+    p->data = lp;
+}
+
+int policy_legacy(Policy *p, const char *game_data_dir) {
+    LegacyTables *t[NUM_SHIPS] = {NULL, NULL, NULL};
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        char path[4096];
+        snprintf(path, sizeof path, "%s/trained%d.json", game_data_dir, k);
+        t[k] = legacy_load(path);
+        if (!t[k]) {
+            for (int j = 0; j < k; j++) {
+                legacy_free(t[j]);
+            }
+            memset(p, 0, sizeof *p);
+            return -1;
+        }
+    }
+    policy_legacy_tables(p, (void *const *)t);
+    ((LegacyPolicy *)p->data)->owned = 1;
+    return 0;
+}
+
 void policy_free(Policy *p) {
+    if (p->kind == POLICY_LEGACY && p->data) {
+        LegacyPolicy *lp = p->data;
+        for (int k = 0; lp->owned && k < NUM_SHIPS; k++) {
+            legacy_free(lp->tables[k]);
+        }
+        free(lp);
+    }
     if (p->kind == POLICY_PPO && p->data) {
         Agent *agents = p->data;
         for (int k = 0; k < NUM_SHIPS; k++) {
@@ -69,6 +116,10 @@ void policy_free(Policy *p) {
 }
 
 void policy_act(Policy *p, const Env *env, Pcg32 *rng, ShipAction out[NUM_SHIPS]) {
+    int targets[NUM_SHIPS];
+    if (p->kind == POLICY_LEGACY) {
+        legacy_targets(env, ((LegacyPolicy *)p->data)->tables, targets);
+    }
     for (int k = 0; k < NUM_SHIPS; k++) {
         out[k] = (ShipAction){H_STAY, V_STAY, 0};
         if (!env->ships[k].alive) {
@@ -87,6 +138,22 @@ void policy_act(Policy *p, const Env *env, Pcg32 *rng, ShipAction out[NUM_SHIPS]
                 dist_argmax(z, a);
             }
             out[k] = (ShipAction){a[0], a[1], a[2]};
+            break;
+        }
+        case POLICY_LEGACY: {
+            const LegacyTables *t = ((LegacyPolicy *)p->data)->tables[k];
+            const Ship *s = &env->ships[k];
+            float dx = 0.0f, dy = 0.0f; /* no target: upstream looks up the zero displacement */
+            if (targets[k] >= 0) {
+                dx = s->x - env->enemies[targets[k]].x;
+                dy = s->y - env->enemies[targets[k]].y;
+            }
+            int x, y;
+            legacy_cell(dx, dy, &x, &y);
+            int vert = (int)pcg32_bounded(rng, 100) + 1;
+            int hori = (int)pcg32_bounded(rng, 100) + 1;
+            int shoot = (int)pcg32_bounded(rng, 100) + 1;
+            out[k] = legacy_compute_action(t->move_h[x][y], t->move_v[x][y], t->shoot[x][y], vert, hori, shoot);
             break;
         }
         case POLICY_RANDOM:

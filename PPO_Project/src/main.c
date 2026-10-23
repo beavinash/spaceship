@@ -12,7 +12,8 @@ static void usage(void) {
           "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
           "            [--death X] [--escape X] [--ally-share X]\n"
-          "  ppo eval --policy random|ppo --output FILE.json [--checkpoint PATH] [--sample]\n"
+          "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--sample]\n"
+          "           [--game-data DIR (legacy; default ../Game_Data)]\n"
           "           [--split dev|test] [--final]\n",
           stderr);
 }
@@ -87,7 +88,7 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
 }
 
 static int run_eval(int argc, char **argv, const char *binary) {
-    const char *policy = NULL, *split = "dev", *output = NULL, *checkpoint = NULL;
+    const char *policy = NULL, *split = "dev", *output = NULL, *checkpoint = NULL, *game_data = "../Game_Data";
     int final = 0, sample = 0;
     for (int i = 0; i < argc; i++) {
         const char *flag = argv[i];
@@ -112,6 +113,8 @@ static int run_eval(int argc, char **argv, const char *binary) {
             output = v;
         } else if (!strcmp(flag, "--checkpoint")) {
             checkpoint = v;
+        } else if (!strcmp(flag, "--game-data")) {
+            game_data = v;
         } else {
             fprintf(stderr, "unknown option %s\n", flag);
             return 2;
@@ -124,6 +127,11 @@ static int run_eval(int argc, char **argv, const char *binary) {
     Policy p;
     if (!strcmp(policy, "random")) {
         policy_random(&p);
+    } else if (!strcmp(policy, "legacy")) {
+        if (policy_legacy(&p, game_data) != 0) {
+            fprintf(stderr, "eval: cannot load legacy tables from %s\n", game_data);
+            return 1;
+        }
     } else if (!strcmp(policy, "ppo")) {
         int rc = checkpoint ? policy_ppo(&p, checkpoint, sample) : CKPT_IO;
         if (rc != 0) {
