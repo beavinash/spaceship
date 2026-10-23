@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "dist.h"
+#include "hash.h"
 #include "legacy.h"
 #include "trainer.h"
 
@@ -24,7 +25,7 @@ void policy_random(Policy *p) {
 int policy_ppo(Policy *p, const char *checkpoint, int sample) {
     memset(p, 0, sizeof *p);
     int n_nets, sizes[4];
-    int rc = checkpoint_shape(checkpoint, &n_nets, sizes);
+    int rc = checkpoint_shape(checkpoint, &n_nets, sizes, NULL);
     if (rc != 0) {
         return rc;
     }
@@ -259,11 +260,14 @@ static void hash_file(const char *path, char out[32]) {
         snprintf(out, 32, "unavailable");
         return;
     }
-    uint64_t h = 14695981039346656037ULL;
-    int c;
-    while ((c = fgetc(f)) != EOF) {
-        h ^= (unsigned char)c;
-        h *= 1099511628211ULL;
+    uint64_t h = FNV_OFFSET;
+    char buf[65536];
+    for (;;) {
+        size_t got = fread(buf, 1, sizeof buf, f);
+        h = fnv1a(h, buf, got);
+        if (got < sizeof buf) {
+            break;
+        }
     }
     fclose(f);
     snprintf(out, 32, "%016llx", (unsigned long long)h);

@@ -1,5 +1,7 @@
 #include "env.h"
 
+#include "hash.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -440,27 +442,16 @@ void env_observe(const Env *env, int ship, float *obs) {
     }
 }
 
-static uint64_t fnv_bytes(uint64_t h, const void *data, size_t n) {
-    const unsigned char *p = data;
-    for (size_t i = 0; i < n; i++) {
-        h ^= p[i];
-        h *= 1099511628211ULL;
-    }
-    return h;
-}
-
 static uint64_t fnv_float(uint64_t h, float v) {
-    uint32_t bits;
-    memcpy(&bits, &v, sizeof bits);
-    return fnv_bytes(h, &bits, sizeof bits);
+    return fnv1a(h, &v, sizeof v);
 }
 
 static uint64_t fnv_int(uint64_t h, int64_t v) {
-    return fnv_bytes(h, &v, sizeof v);
+    return fnv1a(h, &v, sizeof v);
 }
 
 uint64_t env_hash(const Env *env) {
-    uint64_t h = 14695981039346656037ULL;
+    uint64_t h = FNV_OFFSET;
     h = fnv_int(h, (int64_t)env->rng.state);
     h = fnv_int(h, env->tick);
     h = fnv_int(h, env->spawn_timer);

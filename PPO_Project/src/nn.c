@@ -1,5 +1,7 @@
 #include "nn.h"
 
+#include "hash.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -256,14 +258,6 @@ float clip_grad_norm(float *const *groups, const int *sizes, int count, float ma
 #define CKPT_MAGIC "SPPOCKP1"
 #define CKPT_VERSION 1u
 
-static uint64_t fnv1a(uint64_t h, const unsigned char *p, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        h ^= p[i];
-        h *= 1099511628211ULL;
-    }
-    return h;
-}
-
 /* Little-endian u32 at buf + *at, advancing *at. */
 static uint32_t read_u32(const unsigned char *buf, size_t *at) {
     uint32_t v = (uint32_t)buf[*at] | (uint32_t)buf[*at + 1] << 8 | (uint32_t)buf[*at + 2] << 16 |
@@ -309,7 +303,7 @@ int checkpoint_save(const char *path, Mlp *const *nets, int n_nets, uint32_t upd
         memcpy(buf + at, nets[k]->params, n); /* float32 in host order; every supported target is little-endian */
         at += n;
     }
-    uint64_t sum = fnv1a(14695981039346656037ULL, buf, at);
+    uint64_t sum = fnv1a(FNV_OFFSET, buf, at);
     put_u32(buf, &at, (uint32_t)sum);
     put_u32(buf, &at, (uint32_t)(sum >> 32));
 
@@ -375,7 +369,7 @@ int checkpoint_load(const char *path, Mlp *const *nets, int n_nets, uint32_t *up
         rc = CKPT_FORMAT;
         goto done;
     }
-    uint64_t sum = fnv1a(14695981039346656037ULL, buf, cap - 8);
+    uint64_t sum = fnv1a(FNV_OFFSET, buf, cap - 8);
     size_t tail = cap - 8;
     uint64_t stored = read_u32(buf, &tail);
     stored |= (uint64_t)read_u32(buf, &tail) << 32;
@@ -404,7 +398,7 @@ done:
     return rc;
 }
 
-int checkpoint_shape(const char *path, int *n_nets, int sizes[4]) {
+int checkpoint_shape(const char *path, int *n_nets, int sizes[4], uint32_t *update) {
     unsigned char head[8 + 3 * 4 + 5 * 4];
     FILE *f = fopen(path, "rb");
     if (!f) {
@@ -417,7 +411,10 @@ int checkpoint_shape(const char *path, int *n_nets, int sizes[4]) {
         return CKPT_FORMAT;
     }
     *n_nets = (int)read_u32(head, &at);
-    at += 4; /* update counter */
+    uint32_t stored_update = read_u32(head, &at);
+    if (update) {
+        *update = stored_update;
+    }
     for (int l = 0; l < 4; l++) {
         sizes[l] = (int)read_u32(head, &at);
     }

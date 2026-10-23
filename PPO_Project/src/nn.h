@@ -87,8 +87,8 @@ int checkpoint_save(const char *path, Mlp *const *nets, int n_nets, uint32_t upd
 int checkpoint_load(const char *path, Mlp *const *nets, int n_nets, uint32_t *update);
 const char *checkpoint_error(int code);
 
-/* Network count and the first network's layer sizes, read from a checkpoint header. */
-int checkpoint_shape(const char *path, int *n_nets, int sizes[4]);
+/* Network count, the first network's layer sizes, and the update counter (if not NULL), from a header. */
+int checkpoint_shape(const char *path, int *n_nets, int sizes[4], uint32_t *update);
 
 /* Scales all gradient groups together so their joint L2 norm is at most max_norm; returns the norm before. */
 float clip_grad_norm(float *const *groups, const int *sizes, int count, float max_norm);

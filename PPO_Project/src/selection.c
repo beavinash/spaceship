@@ -31,19 +31,11 @@ static int compare_paths(const void *a, const void *b) {
     return strcmp(((const Candidate *)a)->path, ((const Candidate *)b)->path);
 }
 
-/* The update counter stored after the checkpoint magic, version, and network count; 0 if unreadable. */
+/* The update counter in a checkpoint header; 0 if unreadable. */
 static uint32_t checkpoint_update(const char *path) {
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        return 0;
-    }
-    unsigned char head[20];
-    size_t got = fread(head, 1, sizeof head, f);
-    fclose(f);
-    if (got != sizeof head || memcmp(head, "SPPOCKP1", 8) != 0) {
-        return 0;
-    }
-    return (uint32_t)head[16] | (uint32_t)head[17] << 8 | (uint32_t)head[18] << 16 | (uint32_t)head[19] << 24;
+    int n_nets, sizes[4];
+    uint32_t update = 0;
+    return checkpoint_shape(path, &n_nets, sizes, &update) == 0 ? update : 0;
 }
 
 static int copy_file(const char *from, const char *to) {
