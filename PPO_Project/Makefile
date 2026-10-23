@@ -42,9 +42,13 @@ $(BUILD)/viewer: src/viewer.c $(CORE_SRC) $(HEADERS) | $(BUILD)
 	$(CC) $(CPPFLAGS) $(RAYLIB_CFLAGS) $(CFLAGS) src/viewer.c $(CORE_SRC) -o $@ $(LDLIBS) $(RAYLIB_LIBS)
 
 # Renders 300 frames of dev scenario 1000 to build/viewer-check.png; the viewer exits non-zero
-# unless ships, enemies, and missiles are on screen and the image is not blank.
+# unless ships, enemies, and missiles are on screen and the image is not blank. The HUD text it
+# drew is echoed as "hud:" lines, which must include every ship and the team score.
 viewer-check: $(BUILD)/viewer
-	./$(BUILD)/viewer --seed 1000 --frames 300 --screenshot $(BUILD)/viewer-check.png
+	./$(BUILD)/viewer --seed 1000 --frames 300 --screenshot $(BUILD)/viewer-check.png > $(BUILD)/viewer-check.txt
+	cat $(BUILD)/viewer-check.txt
+	grep -q '^hud: Ship 0 ' $(BUILD)/viewer-check.txt && grep -q '^hud: Ship 2 ' $(BUILD)/viewer-check.txt
+	grep -q '^hud: Team score ' $(BUILD)/viewer-check.txt
 
 test: $(BUILD)/test_runner
 	./$(BUILD)/test_runner $(T)

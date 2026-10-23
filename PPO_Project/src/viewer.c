@@ -70,8 +70,57 @@ static void draw_scene(const Env *env, const Art *art) {
         DrawTexture(art->ship, (int)s->x, (int)s->y, WHITE);
         char label[8];
         snprintf(label, sizeof label, "%d", i);
-        DrawTextEx(art->font, label, (Vector2){s->x + SHIP_RADIUS - 5, s->y + 2 * SHIP_RADIUS}, 20, 1, WHITE);
+        DrawTextEx(art->font, label, (Vector2){s->x + SHIP_RADIUS - 5, s->y - 22}, 20, 1, WHITE);
     }
+}
+
+typedef struct {
+    char lines[8][96];
+    int count;
+} Hud;
+
+static void hud_add(Hud *h, const char *text) {
+    if (h->count < 8) {
+        snprintf(h->lines[h->count++], sizeof h->lines[0], "%s", text);
+    }
+}
+
+/* HUD text: one line per ship, then time, team score, escapes, and the policy shown. */
+static Hud make_hud(const Env *env, const Policy *p, int seed) {
+    Hud h = {.count = 0};
+    char line[96];
+    int team = 0;
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        const Ship *s = &env->ships[i];
+        team += env->stats.score[i];
+        if (s->alive) {
+            snprintf(line, sizeof line, "Ship %d  score %d  kills %d  health %d  ammo %d", i, env->stats.score[i],
+                     env->stats.kills[i], (int)s->health, s->ammo);
+        } else {
+            snprintf(line, sizeof line, "Ship %d  destroyed  score %d  kills %d", i, env->stats.score[i],
+                     env->stats.kills[i]);
+        }
+        hud_add(&h, line);
+    }
+    snprintf(line, sizeof line, "Team score %d   escapes %d", team, env->stats.escapes);
+    hud_add(&h, line);
+    snprintf(line, sizeof line, "Time %.1f / %d s   seed %d   %s%s", (double)env->tick / TICK_HZ, EPISODE_SECONDS, seed,
+             p->name, p->kind == POLICY_PPO ? (p->sample ? " (sampled)" : " (greedy)") : "");
+    hud_add(&h, line);
+    return h;
+}
+
+static void draw_hud(const Hud *h, const Art *art, int paused, int speed, int over) {
+    for (int k = 0; k < h->count; k++) {
+        DrawTextEx(art->font, h->lines[k], (Vector2){12, 10 + 24.0f * k}, 20, 1, RAYWHITE);
+    }
+    const char *status = over ? "Episode over: R restart, N next scenario" : paused ? "Paused (Space)" : NULL;
+    if (status) {
+        DrawTextEx(art->font, status, (Vector2){12, 10 + 24.0f * h->count}, 20, 1, YELLOW);
+    }
+    char keys[96];
+    snprintf(keys, sizeof keys, "Space pause   F speed %dx   R restart   N next   Esc quit", speed);
+    DrawTextEx(art->font, keys, (Vector2){12, ARENA_SIZE - 28}, 18, 1, GRAY);
 }
 
 typedef struct {
@@ -189,24 +238,45 @@ int main(int argc, char **argv) {
 
     Env env;
     Pcg32 rng;
-    env_reset(&env, (uint64_t)args.seed);
-    env.action_repeat = policy.action_repeat;
-    pcg32_seed(&rng, (uint64_t)args.seed, 0xe7a1u); /* the same action stream as eval */
+    int seed = args.seed, paused = 0, speed = 1, restart = 1;
     int frame = 0, status = 0;
     while (!WindowShouldClose()) {
-        if (!env.terminated && !env.truncated) {
+        if (IsKeyPressed(KEY_N)) {
+            seed++;
+            restart = 1;
+        }
+        if (IsKeyPressed(KEY_R) || restart) {
+            env_reset(&env, (uint64_t)seed);
+            env.action_repeat = policy.action_repeat;
+            pcg32_seed(&rng, (uint64_t)seed, 0xe7a1u); /* the same action stream as eval */
+            restart = 0;
+        }
+        if (IsKeyPressed(KEY_SPACE)) {
+            paused = !paused;
+        }
+        if (IsKeyPressed(KEY_F)) {
+            speed = speed == 1 ? 4 : 1;
+        }
+        int over = env.terminated || env.truncated;
+        for (int d = 0; d < speed && !paused && !over; d++) {
             ShipAction a[NUM_SHIPS];
             policy_act(&policy, &env, &rng, a);
             env_step(&env, a);
+            over = env.terminated || env.truncated;
         }
+        Hud hud = make_hud(&env, &policy, seed);
         BeginTextureMode(target);
         draw_scene(&env, &art);
+        draw_hud(&hud, &art, paused, speed, over);
         EndTextureMode();
         BeginDrawing();
         DrawTextureRec(target.texture, (Rectangle){0, 0, ARENA_SIZE, -ARENA_SIZE}, (Vector2){0, 0}, WHITE);
         EndDrawing();
         if (args.screenshot && ++frame >= args.frames) {
             status = save_and_check(target, &env, args.screenshot);
+            for (int k = 0; k < hud.count; k++) {
+                printf("hud: %s\n", hud.lines[k]);
+            }
             break;
         }
     }

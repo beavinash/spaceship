@@ -353,7 +353,11 @@ Review scope: PPO_Project/
   - green: same command → exit 0; `screenshot: build/viewer-ppo.png 1000x1000, 17115 lit pixels, 3 ships, 9 enemies, 11 missiles`; `--policy legacy` → exit 0 (`5597 lit pixels, 3 ships, 3 enemies, 15 missiles`) after lowering the blank-frame guard from 1% to 0.2% lit pixels
   - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`; `make -C PPO_Project viewer-check` → exit 0
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: raylib 6.2 and cJSON 1.7.19 (Homebrew)
-- [ ] T039 | P2 | depends: T038 | AC-015 | Show per-ship score, health, kills in a HUD with pause/speed keys; done when: a screenshot shows the HUD text.
+- [x] T039 | P2 | depends: T038 | AC-015 | Show per-ship score, health, kills in a HUD with pause/speed keys; done when: a screenshot shows the HUD text.
+  - red: `make -C PPO_Project viewer-check` (now requiring `hud:` lines) → exit 2; `make: *** [viewer-check] Error 1`
+  - green: `make -C PPO_Project viewer-check` → exit 0; `hud: Ship 0  score 2  kills 1  health 197  ammo 63` … `hud: Team score 14   escapes 4`; screenshot inspected: HUD and key hints drawn
+  - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: raylib 6.2 (Homebrew)
 - [x] T040 | P1 | depends: T017 | AC-016 | Add sanitizer plus static-analysis Makefile targets; done when: both targets report zero findings over tests plus 1M random decisions.
   - red: `make -C PPO_Project test T=invariants` → exit 2; `tests/test_env.c:587:11: error: call to undeclared function 'env_check_invariants'`; `make sanitize` → exit 2; `make: *** No rule to make target \`sanitize'.  Stop.`
   - green: `make -C PPO_Project sanitize` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests` then `stress: 1000000 decisions, 279 episodes, peak 16/64 enemies, 28/64 missiles, 0 violations`
