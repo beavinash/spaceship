@@ -16,7 +16,8 @@ static void usage(void) {
           "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--sample]\n"
           "           [--game-data DIR (legacy; default ../Game_Data)]\n"
           "           [--split dev|test] [--final]\n"
-          "  ppo select --run-dir DIR   (scores DIR's checkpoints on dev; writes selection.json, selected.bin)\n",
+          "  ppo select --run-dir DIR   (scores DIR's checkpoints on dev; writes selection.json, selected.bin)\n"
+          "  ppo stress [--decisions N] [--seed N]   (random play with invariant checks after every decision)\n",
           stderr);
 }
 
@@ -180,7 +181,56 @@ static int run_select(int argc, char **argv) {
     return 0;
 }
 
+static int run_stress(int argc, char **argv) {
+    long long decisions = 1000000;
+    uint64_t seed = 1;
+    for (int i = 0; i + 1 < argc; i += 2) {
+        if (!strcmp(argv[i], "--decisions")) {
+            decisions = atoll(argv[i + 1]);
+        } else if (!strcmp(argv[i], "--seed")) {
+            seed = strtoull(argv[i + 1], NULL, 10);
+        } else {
+            return 2;
+        }
+    }
+    Env env;
+    Pcg32 policy;
+    pcg32_seed(&policy, seed, 0x57e5u);
+    env_reset(&env, seed);
+    long long episodes = 0, max_enemies = 0, max_missiles = 0;
+    char why[256];
+    for (long long d = 0; d < decisions; d++) {
+        ShipAction a[NUM_SHIPS];
+        for (int k = 0; k < NUM_SHIPS; k++) {
+            a[k] = (ShipAction){(int)pcg32_bounded(&policy, 3), (int)pcg32_bounded(&policy, 3),
+                                (int)pcg32_bounded(&policy, 2)};
+        }
+        env_step(&env, a);
+        max_enemies = env.n_enemies > max_enemies ? env.n_enemies : max_enemies;
+        max_missiles = env.n_missiles > max_missiles ? env.n_missiles : max_missiles;
+        if (env_check_invariants(&env, why, sizeof why) != 0) {
+            fprintf(stderr, "stress: violation after decision %lld (episode seed %llu): %s\n", d,
+                    (unsigned long long)env.seed, why);
+            return 1;
+        }
+        if (env.terminated || env.truncated) {
+            episodes++;
+            env_reset(&env, seed + (uint64_t)episodes * 1000003u);
+        }
+    }
+    printf("stress: %lld decisions, %lld episodes, peak %lld/%d enemies, %lld/%d missiles, 0 violations\n", decisions,
+           episodes, max_enemies, MAX_ENEMIES, max_missiles, MAX_MISSILES);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc >= 2 && !strcmp(argv[1], "stress")) {
+        int rc = run_stress(argc - 2, argv + 2);
+        if (rc == 2) {
+            usage();
+        }
+        return rc;
+    }
     if (argc >= 2 && !strcmp(argv[1], "select")) {
         int rc = run_select(argc - 2, argv + 2);
         if (rc == 2) {

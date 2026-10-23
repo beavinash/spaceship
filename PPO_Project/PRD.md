@@ -346,7 +346,11 @@ Review scope: PPO_Project/
 - [ ] T037 | P1 | depends: T017 | AC-015 | Render the arena with original artwork in raylib; done when: `viewer --screenshot` saves a PNG showing ships, enemies, missiles.
 - [ ] T038 | P1 | depends: T037, T033 | AC-015 | Drive viewer ships from checkpoints or baselines; done when: `viewer --policy ppo --checkpoint PATH --screenshot` exits 0 with an image.
 - [ ] T039 | P2 | depends: T038 | AC-015 | Show per-ship score, health, kills in a HUD with pause/speed keys; done when: a screenshot shows the HUD text.
-- [ ] T040 | P1 | depends: T017 | AC-016 | Add sanitizer plus static-analysis Makefile targets; done when: both targets report zero findings over tests plus 1M random decisions.
+- [x] T040 | P1 | depends: T017 | AC-016 | Add sanitizer plus static-analysis Makefile targets; done when: both targets report zero findings over tests plus 1M random decisions.
+  - red: `make -C PPO_Project test T=invariants` → exit 2; `tests/test_env.c:587:11: error: call to undeclared function 'env_check_invariants'`; `make sanitize` → exit 2; `make: *** No rule to make target \`sanitize'.  Stop.`
+  - green: `make -C PPO_Project sanitize` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests` then `stress: 1000000 decisions, 279 episodes, peak 16/64 enemies, 28/64 missiles, 0 violations`
+  - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → exit 0; `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T041 | P1 | depends: T033 | AC-017 | Document build, training, evaluation, viewing in the README; done when: every README command runs as written.
 - [ ] T042 | P1 | depends: T031, T036 | AC-018 | Train seed 1 on this Mac under the shared decision budget; done when: its run directory holds full metrics plus a selected checkpoint.
 - [ ] T045 | P1 | depends: T042 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.

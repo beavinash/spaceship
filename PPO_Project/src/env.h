@@ -1,6 +1,7 @@
 #ifndef ENV_H
 #define ENV_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "rng.h"
@@ -203,6 +204,14 @@ void env_step(Env *env, const ShipAction actions[NUM_SHIPS]);
  * entity slots hold the nearest entities first and are zero-padded. Reads state only.
  */
 void env_observe(const Env *env, int ship, float *obs);
+
+/*
+ * Consistency checks for stress runs: counts within capacity, finite positions inside the arena,
+ * health/ammo/cooldown ranges, shots == SHIP_AMMO - ammo, no dropped spawns or shots, and the
+ * accounting identity spawned == kills + escapes + live enemies in the arena. Returns 0, or -1 with
+ * a reason in why.
+ */
+int env_check_invariants(const Env *env, char *why, size_t why_size);
 
 /* FNV-1a over gameplay state and RNG position, for replay and determinism checks. */
 uint64_t env_hash(const Env *env);

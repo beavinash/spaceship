@@ -17,7 +17,7 @@ HEADERS := $(wildcard src/*.h tests/*.h tests/*.def)
 CORE_SRC := $(filter-out src/main.c src/viewer.c,$(wildcard src/*.c))
 TEST_SRC := $(wildcard tests/*.c)
 
-.PHONY: all test smoke clean
+.PHONY: all test smoke sanitize analyze clean
 
 all: $(BUILD)/test_runner $(BUILD)/ppo
 
@@ -38,6 +38,24 @@ smoke: $(BUILD)/ppo
 	rm -rf runs/smoke
 	./$(BUILD)/ppo train --run-dir runs/smoke --updates 2 --envs 4 --steps 32 --hidden 32 --episode-seconds 1
 	head -c 400 runs/smoke/metrics.csv
+
+# AddressSanitizer + UndefinedBehaviorSanitizer over the tests and one million random decisions.
+SAN_FLAGS := -std=c11 -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+	-Wall -Wextra -Wpedantic $(WERROR)
+sanitize: | $(BUILD)
+	mkdir -p $(BUILD)/sanitize
+	$(CC) $(CPPFLAGS) $(SAN_FLAGS) $(TEST_SRC) $(CORE_SRC) -o $(BUILD)/sanitize/test_runner $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(SAN_FLAGS) src/main.c $(CORE_SRC) -o $(BUILD)/sanitize/ppo $(LDLIBS)
+	./$(BUILD)/sanitize/test_runner
+	./$(BUILD)/sanitize/ppo stress --decisions 1000000
+
+# Clang static analyzer over every source and test file; fails on any finding.
+analyze:
+	@status=0; for f in $(CORE_SRC) src/main.c $(TEST_SRC); do \
+		out=$$(clang --analyze $(CPPFLAGS) -std=c11 -Xanalyzer -analyzer-output=text $$f -o /dev/null 2>&1); \
+		if printf '%s' "$$out" | grep -q 'warning:'; then printf '%s\n' "$$out"; status=1; fi; \
+	done; \
+	if [ $$status -eq 0 ]; then echo "analyze: 0 findings"; fi; exit $$status
 
 clean:
 	rm -rf $(BUILD)

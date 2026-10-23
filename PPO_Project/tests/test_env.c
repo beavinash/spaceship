@@ -579,3 +579,43 @@ void test_env_replay_is_deterministic(void) {
     b.ships[1].x += 1.0f;
     CHECK(env_hash(&a) != env_hash(&b));
 }
+
+void test_env_invariants_hold_and_catch_corruption(void) {
+    char why[128];
+    Env env;
+    env_reset(&env, 31u);
+    CHECK(env_check_invariants(&env, why, sizeof why) == 0);
+    Pcg32 policy;
+    pcg32_seed(&policy, 4u, 4u);
+    int held = 1;
+    while (!env.terminated && !env.truncated) {
+        ShipAction a[NUM_SHIPS];
+        random_actions(&policy, a);
+        env_step(&env, a);
+        held &= env_check_invariants(&env, why, sizeof why) == 0;
+    }
+    CHECK(held);
+    CHECK(env.stats.spawned > 100);
+
+    Env bad = env;
+    bad.stats.escapes++; /* spawned no longer equals kills + escapes + live enemies */
+    CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
+    CHECK(strstr(why, "accounting") != NULL);
+    bad = env;
+    bad.ships[0].ammo = 101;
+    CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
+    bad = env;
+    bad.ships[1].health = 250.0f;
+    CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
+    bad = env;
+    bad.n_enemies = MAX_ENEMIES + 1;
+    CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
+    bad = env;
+    if (bad.n_enemies > 0) {
+        bad.enemies[0].x = NAN;
+        CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
+    }
+    bad = env;
+    bad.stats.dropped_shots = 1;
+    CHECK(env_check_invariants(&bad, why, sizeof why) != 0);
+}

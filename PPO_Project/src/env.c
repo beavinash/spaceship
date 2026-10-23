@@ -1,6 +1,7 @@
 #include "env.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 /* Upstream Aliencraft_Type_1/2/3: ENEMY_HEALTH 40 scaled 0.5/0.75/1, acceleration 90 scaled 1/0.8/0.6. */
@@ -483,4 +484,60 @@ uint64_t env_hash(const Env *env) {
         h = fnv_int(fnv_int(h, mi->owner), mi->id);
     }
     return h;
+}
+
+#define FAIL(...)                                  \
+    do {                                           \
+        snprintf(why, why_size, __VA_ARGS__);      \
+        return -1;                                 \
+    } while (0)
+
+int env_check_invariants(const Env *env, char *why, size_t why_size) {
+    if (env->n_enemies < 0 || env->n_enemies > MAX_ENEMIES || env->n_missiles < 0 || env->n_missiles > MAX_MISSILES) {
+        FAIL("capacity: %d enemies, %d missiles", env->n_enemies, env->n_missiles);
+    }
+    if (env->stats.dropped_spawns || env->stats.dropped_shots) {
+        FAIL("capacity: dropped %d spawns, %d shots", env->stats.dropped_spawns, env->stats.dropped_shots);
+    }
+    const float edge = ARENA_SIZE - 2.0f * SHIP_RADIUS;
+    int kills = 0;
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        const Ship *s = &env->ships[i];
+        if (!isfinite(s->x) || !isfinite(s->y) || s->x < 0.0f || s->x > edge || s->y < 0.0f || s->y > edge) {
+            FAIL("ship %d position (%g, %g)", i, s->x, s->y);
+        }
+        if (!(s->health >= 0.0f && s->health <= SHIP_HEALTH) || s->alive != (s->health > 0.0f)) {
+            FAIL("ship %d health %g alive %d", i, s->health, s->alive);
+        }
+        if (s->ammo < 0 || s->ammo > SHIP_AMMO || env->stats.shots[i] != SHIP_AMMO - s->ammo) {
+            FAIL("ship %d ammo %d after %d shots", i, s->ammo, env->stats.shots[i]);
+        }
+        if (s->weapon_cd < 0 || s->weapon_cd > WEAPON_COOLDOWN_TICKS) {
+            FAIL("ship %d weapon cooldown %d", i, s->weapon_cd);
+        }
+        kills += env->stats.kills[i];
+    }
+    int live = 0;
+    for (int k = 0; k < env->n_enemies; k++) {
+        const Enemy *e = &env->enemies[k];
+        if (!isfinite(e->x) || !isfinite(e->y) || e->x < 0.0f || e->x > ARENA_SIZE - 2.0f * e->radius ||
+            e->y > ARENA_SIZE) {
+            FAIL("enemy %u position (%g, %g)", e->id, e->x, e->y);
+        }
+        if (e->radius != (e->dead ? EXPLOSION_RADIUS : ENEMY_RADIUS) || e->type < 0 || e->type > 2) {
+            FAIL("enemy %u radius %g type %d", e->id, e->radius, e->type);
+        }
+        live += !e->dead;
+    }
+    for (int m = 0; m < env->n_missiles; m++) {
+        const Missile *mi = &env->missiles[m];
+        if (!isfinite(mi->x) || !isfinite(mi->y) || mi->owner < 0 || mi->owner >= NUM_SHIPS) {
+            FAIL("missile %u state", mi->id);
+        }
+    }
+    if (env->stats.spawned != kills + env->stats.escapes + live) {
+        FAIL("accounting: spawned %d != kills %d + escapes %d + live %d", env->stats.spawned, kills,
+             env->stats.escapes, live);
+    }
+    return 0;
 }
