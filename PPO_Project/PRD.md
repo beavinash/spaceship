@@ -258,7 +258,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=mlp` → exit 0; `PASS nn_mlp_init_shapes_and_gradients`
   - regression: `make -C PPO_Project test` → exit 0; `21 tests, 239 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → first run `clang-analyzer: 1 warnings over 6 files` (uninitialised read in orthogonal init), fixed with calloc → `clang-analyzer: 0 warnings over 6 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T020 | P0 | depends: T019 | AC-007 | Compute factorized 3×3×2 categorical log-probabilities with entropy; done when: hand-computed fixtures plus gradient checks pass.
+- [x] T020 | P0 | depends: T019 | AC-007 | Compute factorized 3×3×2 categorical log-probabilities with entropy; done when: hand-computed fixtures plus gradient checks pass.
+  - red: `make -C PPO_Project test T=dist_` → exit 2; `tests/test_dist.c:4:10: fatal error: 'dist.h' file not found`
+  - green: `make -C PPO_Project test T=dist_` → exit 0; `PASS dist_factorized_logprob_entropy_and_gradients`
+  - regression: `make -C PPO_Project test` → exit 0; `22 tests, 252 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 8 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T021 | P0 | depends: T018 | AC-008 | Implement Adam with global gradient-norm clipping; done when: one step on fixed gradients matches reference values.
 - [ ] T022 | P0 | depends: T019 | AC-008 | Save versioned checkpoints with dimension headers plus checksums; done when: round trips are exact while corrupt or mismatched files are rejected.
 - [ ] T023 | P0 | depends: T020 | AC-009 | Store per-ship rollout samples with activity masks; done when: a buffer test shows post-death steps masked.
