@@ -270,3 +270,40 @@ void test_env_kill_becomes_explosion_credited_to_shooter(void) {
     CHECK(env.stats.hits[2] == 1 && env.stats.hits[0] == 0);
     CHECK(env.n_missiles == 1 && env.missiles[0].owner == 0);
 }
+
+static Enemy *frozen_enemy(Env *env, int type, float x, float y) {
+    Enemy *e = env_add_enemy(env, type, x, y);
+    e->vx = 0.0f;
+    e->vy = 0.0f;
+    e->accel = 0.0f;
+    return e;
+}
+
+void test_env_contact_damage_respects_enemy_cooldown(void) {
+    Env env;
+    quiet_env(&env);
+    frozen_enemy(&env, 0, 400.0f, 700.0f); /* exactly on ship 0; ship 1 is 50 px away (not < 50) */
+    hold(&env, IDLE, IDLE, IDLE, 240);
+    CHECK_NEAR(env.ships[0].health, 190.0f, 0.0);
+    CHECK_NEAR(env.stats.damage_taken[0], 10.0f, 0.0);
+    CHECK_NEAR(env.ships[1].health, 200.0f, 0.0);
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK_NEAR(env.ships[0].health, 185.0f, 0.0);
+
+    /* Upstream quirk kept: one cooldown per enemy, checked in ship order, so ship 0 always takes it. */
+    quiet_env(&env);
+    frozen_enemy(&env, 2, 425.0f, 700.0f); /* 25 px from both ship 0 and ship 1 */
+    hold(&env, IDLE, IDLE, IDLE, 240);
+    CHECK_NEAR(env.ships[0].health, 180.0f, 0.0);
+    CHECK_NEAR(env.ships[1].health, 200.0f, 0.0);
+
+    /* Explosions hurt on contact too: 1 damage every 18 ticks. */
+    quiet_env(&env);
+    Enemy *x = frozen_enemy(&env, 0, 375.0f, 675.0f);
+    x->dead = 1;
+    x->radius = 50.0f;
+    x->damage = 1.0f;
+    x->attack_cd_ticks = 18;
+    hold(&env, IDLE, IDLE, IDLE, 36);
+    CHECK_NEAR(env.ships[0].health, 198.0f, 0.0);
+}

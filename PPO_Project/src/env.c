@@ -208,8 +208,42 @@ static void move_enemies(Env *env) {
     }
 }
 
+/*
+ * Upstream Detect_Spaceship_Collision, run per alive ship in index order: an enemy or explosion
+ * touching the ship deals its damage, then waits out its own cooldown before hurting any ship again.
+ */
+static void resolve_contacts(Env *env) {
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        Ship *s = &env->ships[i];
+        if (!s->alive) {
+            continue;
+        }
+        for (int k = 0; k < env->n_enemies; k++) {
+            Enemy *e = &env->enemies[k];
+            float dist = centre_distance(s->x, s->y, SHIP_RADIUS, e->x, e->y, e->radius);
+            if (dist < SHIP_RADIUS + e->radius && e->attack_cd_left <= 0) {
+                float lost = e->damage < s->health ? e->damage : s->health;
+                s->health -= e->damage;
+                env->events[i].health_lost += lost;
+                env->stats.damage_taken[i] += lost;
+                e->attack_cd_left = e->attack_cd_ticks;
+            }
+        }
+    }
+}
+
+/* Upstream Update_Enemy_Attack_Cooldown. */
+static void cool_down_enemies(Env *env) {
+    for (int k = 0; k < env->n_enemies; k++) {
+        if (env->enemies[k].attack_cd_left > 0) {
+            env->enemies[k].attack_cd_left--;
+        }
+    }
+}
+
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     update_spawner(env);
+    resolve_contacts(env);
     for (int i = 0; i < NUM_SHIPS; i++) {
         if (env->ships[i].alive) {
             control_ship(env, i, actions[i]);
@@ -217,6 +251,7 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     }
     resolve_missiles(env);
     move_enemies(env);
+    cool_down_enemies(env);
     move_missiles(env);
     env->tick++;
 }

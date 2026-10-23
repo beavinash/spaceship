@@ -208,7 +208,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=explosion` → exit 0; `PASS env_kill_becomes_explosion_credited_to_shooter`
   - regression: `make -C PPO_Project test` → exit 0; `11 tests, 125 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T010 | P0 | depends: T009 | AC-002 | Apply contact damage under per-enemy attack cooldowns; done when: overlapping a type-1 enemy for 240 ticks deals exactly 10 damage.
+- [x] T010 | P0 | depends: T009 | AC-002 | Apply contact damage under per-enemy attack cooldowns; done when: overlapping a type-1 enemy for 240 ticks deals exactly 10 damage.
+  - red: `make -C PPO_Project test T=contact` → exit 2; `tests/test_env.c:287: CHECK_NEAR(env.ships[0].health, 190.0f) failed: 200 vs 190`
+  - green: `make -C PPO_Project test T=contact` → exit 0; `PASS env_contact_damage_respects_enemy_cooldown`
+  - regression: `make -C PPO_Project test` → exit 0; `12 tests, 132 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T011 | P0 | depends: T010 | AC-004 | Remove ships from physics once health reaches zero; done when: a dead ship ignores actions, cannot fire, takes no damage.
 - [ ] T012 | P0 | depends: T007 | AC-002 | Count live enemies escaping below the arena; done when: the counter rises once per live enemy crossing y > 1000, never for explosions.
 - [ ] T013 | P0 | depends: T011 | AC-004 | Step policy decisions with a 4-tick action repeat; done when: one decision advances exactly 4 ticks with the action held.
