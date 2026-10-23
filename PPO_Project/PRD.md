@@ -273,7 +273,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=checkpoint` → exit 0; `PASS nn_checkpoint_roundtrip_and_rejection` (first implementation reported shape mismatches as length errors; the header is now checked first)
   - regression: `make -C PPO_Project test` → exit 0; `24 tests, 289 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 8 files` after guarding a test helper's fopen; dependency audit: unavailable (no third-party code in the core)
-- [ ] T023 | P0 | depends: T020 | AC-009 | Store per-ship rollout samples with activity masks; done when: a buffer test shows post-death steps masked.
+- [x] T023 | P0 | depends: T020 | AC-009 | Store per-ship rollout samples with activity masks; done when: a buffer test shows post-death steps masked.
+  - red: `make -C PPO_Project test T=rollout_masks` → exit 2; `tests/test_ppo.c:6:10: fatal error: 'ppo.h' file not found`
+  - green: `make -C PPO_Project test T=rollout_masks` → exit 0; `PASS ppo_rollout_masks_steps_after_death`
+  - regression: `make -C PPO_Project test` → exit 0; `25 tests, 299 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T024 | P0 | depends: T023 | AC-009 | Compute GAE with termination, truncation bootstrap, masks; done when: outputs match a hand-computed fixture.
 - [ ] T025 | P0 | depends: T020 | AC-009 | Compute clipped PPO loss gradients for policy, value, entropy terms; done when: finite-difference checks pass with the expected clip fraction.
 - [ ] T026 | P0 | depends: T024, T025, T021 | AC-009 | Run shuffled minibatch epochs with per-minibatch advantage normalization; done when: each active sample is visited exactly once per epoch.
