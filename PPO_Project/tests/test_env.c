@@ -788,3 +788,38 @@ void test_env_alignment_shaping_is_potential_based(void) {
         CHECK_NEAR(env.stats.parts[i].align, 0.5 * end, 1e-4);
     }
 }
+
+void test_env_edge_penalty_only_inside_band(void) {
+    RewardConfig cfg = reward_config_default();
+    CHECK_NEAR(cfg.edge, -0.003, 1e-7);
+    CHECK_NEAR(EDGE_BAND, 60.0, 0.0);
+    float r[NUM_SHIPS];
+    ShipAction idle[NUM_SHIPS] = {IDLE, IDLE, IDLE};
+    const struct {
+        float x, y;
+        int alive;
+        int charged;
+    } cases[] = {
+        {10.0f, 500.0f, 1, 1},  /* centre x 35: left band */
+        {35.0f, 500.0f, 1, 0},  /* centre x 60: on the boundary, outside */
+        {920.0f, 500.0f, 1, 1}, /* centre x 945: right band */
+        {400.0f, 930.0f, 1, 1}, /* centre y 955: bottom band */
+        {400.0f, 900.0f, 1, 0}, /* centre y 925: outside */
+        {400.0f, 10.0f, 1, 0},  /* the top edge is not penalised */
+        {10.0f, 940.0f, 0, 0},  /* dead ships are never charged */
+    };
+    int ok = 1;
+    for (size_t c = 0; c < sizeof cases / sizeof cases[0]; c++) {
+        Env env;
+        quiet_env(&env);
+        env.ships[0].x = cases[c].x;
+        env.ships[0].y = cases[c].y;
+        env.ships[0].alive = cases[c].alive;
+        env.ships[0].health = cases[c].alive ? SHIP_HEALTH : 0.0f;
+        env_step(&env, idle);
+        env_rewards(&env, &cfg, r);
+        ok &= fabsf(env.stats.parts[0].edge - (cases[c].charged ? -0.003f : 0.0f)) < 1e-7f;
+        ok &= env.stats.parts[1].edge == 0.0f;
+    }
+    CHECK(ok);
+}

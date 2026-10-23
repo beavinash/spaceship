@@ -136,7 +136,10 @@ typedef struct {
     float ally_share;
     float align; /* potential-based shaping weight on the best shot quality */
     float gamma; /* shaping discount; must equal the learner's gamma */
+    float edge;  /* per decision with the ship's centre inside EDGE_BAND of a side wall or the bottom */
 } RewardConfig;
+
+#define EDGE_BAND 60.0f
 
 /* Reward components summed over an episode, per ship. */
 typedef struct {
@@ -148,6 +151,7 @@ typedef struct {
     float escape;
     float ally;
     float align;
+    float edge;
 } RewardParts;
 
 typedef struct {

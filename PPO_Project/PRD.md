@@ -392,7 +392,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=alignment_shaping` → exit 0; `PASS env_alignment_shaping_is_potential_based` (fixtures for gain, loss, no-ammo and death, plus the γ = 1 telescoping check over a full episode)
   - regression: `make -C PPO_Project test` → exit 0; `43 tests, 562 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T050 | P0 | depends: T015 | AC-022 | Penalize ship time inside the 60 px edge band; done when: a fixture charges the penalty only inside the band.
+- [x] T050 | P0 | depends: T015 | AC-022 | Penalize ship time inside the 60 px edge band; done when: a fixture charges the penalty only inside the band.
+  - red: `make -C PPO_Project test T=edge_penalty` → exit 2; `tests/test_env.c:794:20: error: no member named 'edge' in 'RewardConfig'`
+  - green: `make -C PPO_Project test T=edge_penalty` → exit 0; `PASS env_edge_penalty_only_inside_band`
+  - regression: `make -C PPO_Project test` → exit 0; `44 tests, 565 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T051 | P1 | depends: T048, T050 | AC-023 | Report edge-time share with predicted-hit shot share in metrics; done when: CSV plus JSON tests find both values.
 - [ ] T052 | P1 | depends: T049 | AC-024 | Default to λ 0.99 with sampled evaluation; done when: a defaults test passes while `eval --greedy` still works.
 - [ ] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
