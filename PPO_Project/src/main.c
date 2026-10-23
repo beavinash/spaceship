@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "eval.h"
 #include "train.h"
 
 static void usage(void) {
@@ -10,7 +11,8 @@ static void usage(void) {
           "            [--checkpoint-every N]\n"
           "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
-          "            [--death X] [--escape X] [--ally-share X]\n",
+          "            [--death X] [--escape X] [--ally-share X]\n"
+          "  ppo eval --policy random --output FILE.json [--split dev|test] [--final]\n",
           stderr);
 }
 
@@ -83,7 +85,67 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
     return 0;
 }
 
+static int run_eval(int argc, char **argv, const char *binary) {
+    const char *policy = NULL, *split = "dev", *output = NULL;
+    int final = 0;
+    for (int i = 0; i < argc; i++) {
+        const char *flag = argv[i];
+        if (!strcmp(flag, "--final")) {
+            final = 1;
+            continue;
+        }
+        if (i + 1 >= argc) {
+            fprintf(stderr, "missing value for %s\n", flag);
+            return 2;
+        }
+        const char *v = argv[++i];
+        if (!strcmp(flag, "--policy")) {
+            policy = v;
+        } else if (!strcmp(flag, "--split")) {
+            split = v;
+        } else if (!strcmp(flag, "--output")) {
+            output = v;
+        } else {
+            fprintf(stderr, "unknown option %s\n", flag);
+            return 2;
+        }
+    }
+    if (!policy || !output) {
+        fputs("eval needs --policy and --output\n", stderr);
+        return 2;
+    }
+    Policy p;
+    if (!strcmp(policy, "random")) {
+        policy_random(&p);
+    } else {
+        fprintf(stderr, "unknown policy %s\n", policy);
+        return 2;
+    }
+    static EpisodeResult res[100];
+    int n = 0;
+    if (eval_run(&p, split, final, res, &n) != 0) {
+        return 1;
+    }
+    ReportMeta meta = {.policy = p.name, .split = split, .checkpoint = NULL, .binary = binary};
+    if (eval_write_json(output, &meta, &p, res, n) != 0) {
+        fprintf(stderr, "eval: cannot write %s\n", output);
+        return 1;
+    }
+    Summary score = summarize(res, n, offsetof(EpisodeResult, team_score));
+    Summary deaths = summarize(res, n, offsetof(EpisodeResult, deaths));
+    printf("%s on %s (%d scenarios): team score %.2f +/- %.2f, deaths %.2f +/- %.2f -> %s\n", p.name, split, n,
+           score.mean, score.ci95, deaths.mean, deaths.ci95, output);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc >= 2 && !strcmp(argv[1], "eval")) {
+        int rc = run_eval(argc - 2, argv + 2, argv[0]);
+        if (rc == 2) {
+            usage();
+        }
+        return rc;
+    }
     if (argc >= 2 && !strcmp(argv[1], "train")) {
         RunConfig rc = run_config_default();
         if (parse_train(argc - 2, argv + 2, &rc) != 0) {
