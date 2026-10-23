@@ -328,7 +328,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=eval_` → exit 0; `PASS eval_ppo_checkpoint_report_matches_schema`; CLI: `ppo on dev (20 scenarios): team score 0.30 +/- 0.43, deaths 0.10 +/- 0.13` (2-update smoke checkpoint)
   - regression: `make -C PPO_Project test` → exit 0; `36 tests, 484 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 19 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T034 | P1 | depends: T032 | AC-014 | Load upstream `Game_Data` tables as a frozen legacy policy; done when: tests reproduce upstream probability lookups for fixed displacements.
+- [x] T034 | P1 | depends: T032 | AC-014 | Load upstream `Game_Data` tables as a frozen legacy policy; done when: tests reproduce upstream probability lookups for fixed displacements.
+  - red: `make -C PPO_Project test T=legacy` → exit 2; `tests/test_legacy.c:2:10: fatal error: 'legacy.h' file not found`
+  - green: `make -C PPO_Project test T=legacy` → exit 0; `PASS legacy_tables_reproduce_upstream_lookups` (reference probabilities read independently with Python's json module)
+  - regression: `make -C PPO_Project test` → exit 0; `37 tests, 501 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 21 files` after checking the file-size seek/tell results; dependency audit: cJSON 1.7.19 (Homebrew, `pkg-config --modversion libcjson`), optional, used only by the legacy baseline
 - [ ] T035 | P1 | depends: T034 | AC-014 | Port upstream target locking for the legacy policy; done when: a fixture matches upstream target choice, including ally fallback.
 - [ ] T036 | P1 | depends: T033 | AC-013 | Select the best checkpoint on development seeds; done when: selection picks the highest mean team score with deterministic tie-breaking.
 - [ ] T037 | P1 | depends: T017 | AC-015 | Render the arena with original artwork in raylib; done when: `viewer --screenshot` saves a PNG showing ships, enemies, missiles.

@@ -4,6 +4,12 @@ OPT ?= -O2
 CFLAGS ?= -std=c11 $(OPT) -Wall -Wextra -Wpedantic $(WERROR)
 CPPFLAGS += -Isrc
 LDLIBS += -lm -lpthread
+# cJSON is optional: it only enables the legacy baseline (reading upstream Game_Data tables).
+CJSON_LIBS := $(shell pkg-config --libs libcjson 2>/dev/null)
+ifneq ($(CJSON_LIBS),)
+CPPFLAGS += -DHAVE_CJSON $(shell pkg-config --cflags libcjson)
+LDLIBS += $(CJSON_LIBS)
+endif
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)$(shell test -n "$$(git status --porcelain -- . 2>/dev/null)" && echo -dirty)
 
 BUILD := build
