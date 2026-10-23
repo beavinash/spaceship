@@ -397,7 +397,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=edge_penalty` → exit 0; `PASS env_edge_penalty_only_inside_band`
   - regression: `make -C PPO_Project test` → exit 0; `44 tests, 565 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T051 | P1 | depends: T048, T050 | AC-023 | Report edge-time share with predicted-hit shot share in metrics; done when: CSV plus JSON tests find both values.
+- [x] T051 | P1 | depends: T048, T050 | AC-023 | Report edge-time share with predicted-hit shot share in metrics; done when: CSV plus JSON tests find both values.
+  - red: `make -C PPO_Project test T=edge_ticks` → exit 2; `tests/test_env.c:832:21: error: no member named 'edge_ticks' in 'EpisodeStats'`
+  - green: `make -C PPO_Project test T=edge_ticks` → exit 0; `PASS env_counts_edge_ticks_and_aimed_shots`; the CSV header test (aimed_share, edge_share) and the eval JSON test (edge_share, aimed_shot_share) pass
+  - regression: `make -C PPO_Project test` → exit 0; `45 tests, 573 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T052 | P1 | depends: T049 | AC-024 | Default to λ 0.99 with sampled evaluation; done when: a defaults test passes while `eval --greedy` still works.
 - [ ] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
 - [ ] T042 | P1 | depends: T031, T036, T053 | AC-018 | Train seed 1 on this Mac for 20 minutes; done when: its run directory holds full metrics plus a selected checkpoint.

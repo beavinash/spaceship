@@ -97,6 +97,9 @@ static void add_episode(Trainer *tr, const Env *e) {
         rec->kills += (float)s->kills[k];
         rec->hits += (float)s->hits[k];
         rec->shots += (float)s->shots[k];
+        rec->aimed += (float)s->aimed_shots[k];
+        rec->edge_ticks += (float)s->edge_ticks[k];
+        rec->alive_ticks += (float)s->alive_ticks[k];
         rec->damage += s->damage_taken[k];
         rec->deaths += (float)s->died[k];
     }

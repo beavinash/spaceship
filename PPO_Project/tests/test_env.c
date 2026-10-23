@@ -823,3 +823,20 @@ void test_env_edge_penalty_only_inside_band(void) {
     }
     CHECK(ok);
 }
+
+void test_env_counts_edge_ticks_and_aimed_shots(void) {
+    Env env;
+    quiet_env(&env);
+    env.ships[0].x = 10.0f; /* inside the left band */
+    hold(&env, IDLE, IDLE, IDLE, 50);
+    CHECK(env.stats.edge_ticks[0] == 50);
+    CHECK(env.stats.edge_ticks[1] == 0);
+    CHECK(env.stats.alive_ticks[0] == 50);
+
+    quiet_env(&env);
+    Enemy *e = env_add_enemy(&env, 2, 385.0f, 300.0f); /* dead centre above ship 0 */
+    e->vx = e->vy = e->accel = 0.0f;
+    hold(&env, FIRE, FIRE, IDLE, 1); /* ship 0 has a shot; ship 1, 50 px aside, does not */
+    CHECK(env.stats.shots[0] == 1 && env.stats.aimed_shots[0] == 1);
+    CHECK(env.stats.shots[1] == 1 && env.stats.aimed_shots[1] == 0);
+}

@@ -31,6 +31,9 @@ typedef struct {
     float kills;
     float hits;
     float shots;
+    float aimed;
+    float edge_ticks;
+    float alive_ticks;
     float damage;
     float deaths;
     float escapes;

@@ -52,7 +52,9 @@ typedef struct {
     double kills;
     double hits;
     double shots;
-    double accuracy; /* hits / shots */
+    double accuracy;         /* hits / shots */
+    double aimed_shot_share; /* shots fired with a predicted hit / shots */
+    double edge_share;       /* alive time spent in the edge band / alive time */
     double damage_taken;
     double deaths;
     double alive_at_end;

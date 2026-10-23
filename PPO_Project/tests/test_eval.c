@@ -67,6 +67,14 @@ void test_eval_random_policy_dev_report(void) {
     CHECK(file_has(path, "\"deaths\": {\"mean\": "));
     CHECK(file_has(path, "\"escapes\": {\"mean\": "));
     CHECK(file_has(path, "\"ship_health\": 200"));
+    CHECK(file_has(path, "\"edge_share\": {\"mean\": "));
+    CHECK(file_has(path, "\"aimed_shot_share\": {\"mean\": "));
+    int shares_ok = 1;
+    for (int i = 0; i < n; i++) {
+        shares_ok &= res[i].edge_share >= 0.0 && res[i].edge_share <= 1.0;
+        shares_ok &= res[i].aimed_shot_share >= 0.0 && res[i].aimed_shot_share <= 1.0;
+    }
+    CHECK(shares_ok);
 }
 
 /* Keys from the "summary" section onward, in order, separated by '|'. */

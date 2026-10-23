@@ -209,7 +209,15 @@ static void run_episode(Policy *p, int seed, EpisodeResult *r) {
         r->survival_seconds += (double)s->alive_ticks[k] / TICK_HZ / NUM_SHIPS;
         r->return_mean += s->episode_return[k] / NUM_SHIPS;
     }
+    double aimed = 0.0, edge = 0.0, alive = 0.0;
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        aimed += s->aimed_shots[k];
+        edge += s->edge_ticks[k];
+        alive += s->alive_ticks[k];
+    }
     r->accuracy = r->shots > 0 ? r->hits / r->shots : 0.0;
+    r->aimed_shot_share = r->shots > 0 ? aimed / r->shots : 0.0;
+    r->edge_share = alive > 0 ? edge / alive : 0.0;
     r->escapes = s->escapes;
     r->spawned = s->spawned;
     r->episode_seconds = (double)env.tick / TICK_HZ;
@@ -287,6 +295,8 @@ static const Metric METRICS[] = {
     {"hits", offsetof(EpisodeResult, hits)},
     {"shots", offsetof(EpisodeResult, shots)},
     {"accuracy", offsetof(EpisodeResult, accuracy)},
+    {"aimed_shot_share", offsetof(EpisodeResult, aimed_shot_share)},
+    {"edge_share", offsetof(EpisodeResult, edge_share)},
     {"damage_taken", offsetof(EpisodeResult, damage_taken)},
     {"deaths", offsetof(EpisodeResult, deaths)},
     {"alive_at_end", offsetof(EpisodeResult, alive_at_end)},

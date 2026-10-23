@@ -50,6 +50,11 @@ static void move_ship(Ship *s, ShipAction a) {
     s->y = clampf(s->y + dy * TICK_DT, 0.0f, ARENA_SIZE - 2.0f * SHIP_RADIUS);
 }
 
+static int near_edge(const Ship *s) {
+    float cx = s->x + SHIP_RADIUS, cy = s->y + SHIP_RADIUS;
+    return s->alive && (cx < EDGE_BAND || cx > ARENA_SIZE - EDGE_BAND || cy > ARENA_SIZE - EDGE_BAND);
+}
+
 /* Upstream ShootMissile: launched from the ship's top-left corner with 30 px/s upward speed. */
 static void fire_missile(Env *env, int owner) {
     Ship *s = &env->ships[owner];
@@ -57,6 +62,9 @@ static void fire_missile(Env *env, int owner) {
         env->stats.dropped_shots++;
         return;
     }
+    int aimed;
+    env_shot_quality(env, owner, &aimed);
+    env->stats.aimed_shots[owner] += aimed;
     Missile *m = &env->missiles[env->n_missiles++];
     m->x = s->x;
     m->y = s->y;
@@ -295,6 +303,7 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     remove_escaped(env);
     for (int i = 0; i < NUM_SHIPS; i++) {
         env->stats.alive_ticks[i] += env->ships[i].alive;
+        env->stats.edge_ticks[i] += near_edge(&env->ships[i]);
     }
     env->tick++;
 }
@@ -345,8 +354,6 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
         const Ship *s = &env->ships[i];
         int hit;
         float phi = s->alive && s->ammo > 0 ? env_shot_quality(env, i, &hit) : 0.0f;
-        float cx = s->x + SHIP_RADIUS, cy = s->y + SHIP_RADIUS;
-        int near_edge = s->alive && (cx < EDGE_BAND || cx > ARENA_SIZE - EDGE_BAND || cy > ARENA_SIZE - EDGE_BAND);
         RewardParts part = {
             .kill = cfg->kill_points * (float)ev->kill_points,
             .hit = cfg->hit * (float)ev->hits,
@@ -356,7 +363,7 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
             .escape = cfg->escape * (float)ev->escapes,
             .ally = cfg->ally_share * cfg->kill_points * (float)ev->ally_kill_points,
             .align = cfg->align * (cfg->gamma * phi - env->potential[i]),
-            .edge = cfg->edge * (float)near_edge,
+            .edge = cfg->edge * (float)near_edge(s),
         };
         env->potential[i] = phi;
         float r = part.kill + part.hit + part.shot + part.damage + part.death + part.escape + part.ally + part.align +

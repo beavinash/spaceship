@@ -15,7 +15,8 @@
 
 #define METRICS_HEADER                                                                                         \
     "update,decisions,seconds,decisions_per_sec,lr,episodes,ep_return_mean,ep_return_ship0,ep_return_ship1,"    \
-    "ep_return_ship2,team_score,kills,hits,shots,accuracy,damage_taken,deaths,escapes,spawned,ep_seconds,"      \
+    "ep_return_ship2,team_score,kills,hits,shots,accuracy,aimed_share,edge_share,damage_taken,deaths,escapes,"  \
+    "spawned,ep_seconds,"                                                                                       \
     "pg_loss,v_loss,entropy,approx_kl,clipfrac,explained_var,grad_norm"
 
 RunConfig run_config_default(void) {
@@ -107,7 +108,7 @@ static int save_snapshot(Trainer *tr, const char *path, long long update) {
 static void write_episode_columns(FILE *f, const Trainer *tr) {
     int n = tr->episodes < EPISODE_WINDOW ? (int)tr->episodes : EPISODE_WINDOW;
     if (n == 0) {
-        fputs(",,,,,,,,,,,,,,", f); /* the 14 episode columns stay empty */
+        fputs(",,,,,,,,,,,,,,,,", f); /* the 16 episode columns stay empty */
         return;
     }
     EpisodeRecord sum = {0};
@@ -120,6 +121,9 @@ static void write_episode_columns(FILE *f, const Trainer *tr) {
         sum.kills += r->kills;
         sum.hits += r->hits;
         sum.shots += r->shots;
+        sum.aimed += r->aimed;
+        sum.edge_ticks += r->edge_ticks;
+        sum.alive_ticks += r->alive_ticks;
         sum.damage += r->damage;
         sum.deaths += r->deaths;
         sum.escapes += r->escapes;
@@ -130,9 +134,10 @@ static void write_episode_columns(FILE *f, const Trainer *tr) {
     for (int k = 0; k < NUM_SHIPS; k++) {
         mean_ret += sum.ret[k] / (double)n / NUM_SHIPS;
     }
-    fprintf(f, ",%.4f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f", mean_ret,
+    fprintf(f, ",%.4f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f", mean_ret,
             sum.ret[0] / n, sum.ret[1] / n, sum.ret[2] / n, sum.team_score / n, sum.kills / n, sum.hits / n,
-            sum.shots / n, sum.shots > 0 ? sum.hits / sum.shots : 0.0, sum.damage / n, sum.deaths / n,
+            sum.shots / n, sum.shots > 0 ? sum.hits / sum.shots : 0.0, sum.shots > 0 ? sum.aimed / sum.shots : 0.0,
+            sum.alive_ticks > 0 ? sum.edge_ticks / sum.alive_ticks : 0.0, sum.damage / n, sum.deaths / n,
             sum.escapes / n, sum.spawned / n, sum.seconds / n);
 }
 

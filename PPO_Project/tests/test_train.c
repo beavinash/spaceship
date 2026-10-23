@@ -6,7 +6,8 @@
 
 #define DOCUMENTED_COLUMNS                                                                                      \
     "update,decisions,seconds,decisions_per_sec,lr,episodes,ep_return_mean,ep_return_ship0,ep_return_ship1,"    \
-    "ep_return_ship2,team_score,kills,hits,shots,accuracy,damage_taken,deaths,escapes,spawned,ep_seconds,"      \
+    "ep_return_ship2,team_score,kills,hits,shots,accuracy,aimed_share,edge_share,damage_taken,deaths,escapes,"  \
+    "spawned,ep_seconds,"                                                                                       \
     "pg_loss,v_loss,entropy,approx_kl,clipfrac,explained_var,grad_norm"
 
 static int count_fields(const char *line) {
@@ -61,7 +62,7 @@ void test_train_run_writes_metrics_csv(void) {
         }
         ep_return = strtod(field, NULL);
         char *ent = line;
-        for (int c = 0; c < 22; c++) {
+        for (int c = 0; c < 24; c++) {
             ent = strchr(ent, ',') + 1;
         }
         entropy = strtod(ent, NULL);
