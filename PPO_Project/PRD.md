@@ -433,7 +433,11 @@ Review scope: PPO_Project/
   - green: `git ls-files PPO_Project/checkpoints` → `PPO_Project/checkpoints/index.json` and `PPO_Project/checkpoints/ppo_seed101.bin` (868,096 bytes); reloading it reproduces `team score 119.30 +/- 10.29, deaths 0.00` on dev
   - regression: `git ls-files PPO_Project` lists no files under runs/ or build/ (both still ignored)
   - scans: not applicable (data and docs only)
-- [ ] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
+- [x] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
+  - red: before this task, `ppo eval --split test` without `--final` → exit 1 (`eval: the test split is held out; pass --final for the one final evaluation`); no test-split result existed
+  - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final` → `team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`; random `103.68 +/- 4.65, deaths 1.40`; legacy `103.78 +/- 4.42, deaths 0.65`; judged: `MQ-1 PASS`, `MQ-2 PASS`, `MQ-3 PASS` (edge 0.033), `MQ-4 PASS` (accuracy 0.288 vs 0.256, aimed 0.243 vs 0.229); single training seed, so the 2-of-3-seeds clause is not assessable
+  - regression: `make -C PPO_Project test` → exit 0; `47 tests, 589 checks, 0 failed checks, 0 failed tests`
+  - scans: no code changed in this task
 
 ## 6. Open questions
 

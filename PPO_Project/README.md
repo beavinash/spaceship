@@ -115,6 +115,25 @@ Each ship is an independent learner with its own actor, critic and Adam state. T
 
 **Metrics.** `metrics.csv` and eval reports include team score, kills, accuracy, `aimed_share` (share of shots fired while the fire solution predicted a hit), `edge_share` (alive time in the edge band), deaths and escapes.
 
+## Results
+
+`checkpoints/ppo_seed101.bin` came from 10 minutes of training on this Mac (3.8M decisions). It was selected on the dev scenarios, then evaluated once on the 100 held-out test scenarios (10000–10099). Actions are sampled; values are means ± 95% CI.
+
+| | PPO | Random | Upstream tables |
+|---|---|---|---|
+| Team score (upstream points) | **117.9 ± 3.6** | 103.7 ± 4.6 | 103.8 ± 4.4 |
+| Kills | 26.0 ± 0.5 | 23.0 ± 0.9 | 23.0 ± 0.8 |
+| Accuracy (hits per shot) | 0.288 ± 0.005 | 0.256 ± 0.010 | 0.269 ± 0.008 |
+| Shots fired with a predicted hit | 0.243 ± 0.011 | 0.229 ± 0.012 | 0.228 ± 0.011 |
+| Alive time near walls | 3.3% | 11.3% | 4.2% |
+| Ships lost per episode | **0.00** | 1.40 | 0.65 |
+
+Caveats:
+
+- **One seed.** This is a single training seed; seed-to-seed variation is unmeasured.
+- **Aiming.** The aimed-shot gain is small, and its confidence intervals touch.
+- **Escapes.** About 127 of ~150 spawned enemies still escape, because 300 missiles per episode cannot stop them all.
+
 ## Files
 
 | Path | Contents |
