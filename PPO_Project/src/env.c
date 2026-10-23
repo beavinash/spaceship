@@ -352,8 +352,7 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
     for (int i = 0; i < NUM_SHIPS; i++) {
         const ShipEvents *ev = &env->events[i];
         const Ship *s = &env->ships[i];
-        int hit;
-        float phi = s->alive && s->ammo > 0 ? env_shot_quality(env, i, &hit) : 0.0f;
+        float phi = env_potential(env, i);
         RewardParts part = {
             .kill = cfg->kill_points * (float)ev->kill_points,
             .hit = cfg->hit * (float)ev->hits,
@@ -408,6 +407,17 @@ static int nearest(const float *dist, int n, int k, int *out) {
     return count;
 }
 
+/* The enemy indices in ship's observation slots, nearest first (as env_observe fills them). */
+static int observed_enemies(const Env *env, int ship, int idx[OBS_ENEMY_SLOTS]) {
+    const Ship *self = &env->ships[ship];
+    float dist[MAX_ENEMIES];
+    for (int k = 0; k < env->n_enemies; k++) {
+        const Enemy *e = &env->enemies[k];
+        dist[k] = centre_distance(self->x, self->y, SHIP_RADIUS, e->x, e->y, e->radius);
+    }
+    return nearest(dist, env->n_enemies, OBS_ENEMY_SLOTS, idx);
+}
+
 void env_observe(const Env *env, int ship, float *obs) {
     memset(obs, 0, OBS_DIM * sizeof *obs);
     const Ship *self = &env->ships[ship];
@@ -442,14 +452,12 @@ void env_observe(const Env *env, int ship, float *obs) {
     float offset[MAX_ENEMIES];
     int would_hit = 0;
     for (int k = 0; k < env->n_enemies; k++) {
-        const Enemy *e = &env->enemies[k];
         int hit;
-        dist[k] = centre_distance(self->x, self->y, SHIP_RADIUS, e->x, e->y, e->radius);
         offset[k] = env_fire_solution(env, ship, k, &hit);
         would_hit |= hit;
     }
     obs[7] = (float)would_hit;
-    int ne = nearest(dist, env->n_enemies, OBS_ENEMY_SLOTS, idx);
+    int ne = observed_enemies(env, ship, idx);
     for (int s = 0; s < ne; s++) {
         const Enemy *e = &env->enemies[idx[s]];
         float *f = obs + OBS_ENEMY_OFFSET + s * OBS_ENEMY;
@@ -620,6 +628,21 @@ float env_shot_quality(const Env *env, int ship, int *would_hit) {
         float q = shot_quality(env_fire_solution(env, ship, k, &hit));
         best = q > best ? q : best;
         *would_hit |= hit;
+    }
+    return best;
+}
+
+float env_potential(const Env *env, int ship) {
+    const Ship *s = &env->ships[ship];
+    if (!s->alive || s->ammo <= 0) {
+        return 0.0f;
+    }
+    int idx[OBS_ENEMY_SLOTS];
+    int n = observed_enemies(env, ship, idx);
+    float best = 0.0f;
+    for (int k = 0; k < n; k++) {
+        float q = shot_quality(env_fire_solution(env, ship, idx[k], NULL));
+        best = q > best ? q : best;
     }
     return best;
 }

@@ -238,6 +238,12 @@ float env_fire_solution(const Env *env, int ship, int enemy, int *hit);
 /* Best shot quality for `ship` over all live enemies, in [0, 1]; sets *would_hit if any shot would hit. */
 float env_shot_quality(const Env *env, int ship, int *would_hit);
 
+/*
+ * Shaping potential: the best shot quality over the enemies in the ship's observation slots, so it
+ * equals the largest per-slot shot-quality input. 0 for a dead ship or one without ammo.
+ */
+float env_potential(const Env *env, int ship);
+
 /* FNV-1a over gameplay state and RNG position, for replay and determinism checks. */
 uint64_t env_hash(const Env *env);
 
@@ -246,8 +252,8 @@ RewardConfig reward_config_default(void);
 
 /*
  * Per-ship reward for the last decision: a linear combination of that ship's events plus
- * potential-based alignment shaping align * (gamma * Phi(s') - Phi(s)), where Phi is the best shot
- * quality with ammo left and 0 once the ship is dead. Call once after every env_step.
+ * potential-based alignment shaping align * (gamma * Phi(s') - Phi(s)), with Phi = env_potential,
+ * and the edge penalty. Call once after every env_step.
  * Also adds each component to stats.parts and the total to stats.episode_return.
  */
 void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]);

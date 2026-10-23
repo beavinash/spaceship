@@ -447,7 +447,11 @@ Review scope: PPO_Project/
   - green: `git ls-files PPO_Project/checkpoints` → `PPO_Project/checkpoints/index.json` and `PPO_Project/checkpoints/ppo_seed101.bin` (868,096 bytes); reloading it reproduces `team score 119.30 +/- 10.29, deaths 0.00` on dev
   - regression: `git ls-files PPO_Project` lists no files under runs/ or build/ (both still ignored)
   - scans: not applicable (data and docs only)
-- [ ] T056 | P1 | depends: T049, T048 | AC-026 | Compute the shaping potential over the ship's observed enemy slots only; done when: a test shows an aligned enemy outside the 8 slots adds nothing while the potential equals the best slot input.
+- [x] T056 | P1 | depends: T049, T048 | AC-026 | Compute the shaping potential over the ship's observed enemy slots only; done when: a test shows an aligned enemy outside the 8 slots adds nothing while the potential equals the best slot input.
+  - red: `make -C PPO_Project test T=potential_uses` → exit 2; `tests/test_env.c:872:16: error: call to undeclared function 'env_potential'`
+  - green: `make -C PPO_Project test T=potential_uses` → exit 0; `PASS env_potential_uses_observed_slots`; the checkpoint's dev play metrics are identical before and after (only the shaped return moves, by design)
+  - regression: `make -C PPO_Project test` → exit 0; `48 tests, 596 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T057 | P1 | depends: T056, T028 | AC-027 | Treat the 120 s limit as terminal for learning; done when: tests show zero potential with zero bootstrap at the limit.
 - [ ] T058 | P1 | depends: T057 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
 - [x] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.

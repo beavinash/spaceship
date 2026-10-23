@@ -840,3 +840,52 @@ void test_env_counts_edge_ticks_and_aimed_shots(void) {
     CHECK(env.stats.shots[0] == 1 && env.stats.aimed_shots[0] == 1);
     CHECK(env.stats.shots[1] == 1 && env.stats.aimed_shots[1] == 0);
 }
+
+/* Largest per-slot shot-quality input in ship 0's observation. */
+static float best_slot_quality(const Env *env) {
+    float o[OBS_DIM], best = 0.0f;
+    env_observe(env, 0, o);
+    for (int s = 0; s < OBS_ENEMY_SLOTS; s++) {
+        float q = o[OBS_ENEMY_OFFSET + s * OBS_ENEMY + OBS_ENEMY - 1];
+        best = q > best ? q : best;
+    }
+    return best;
+}
+
+void test_env_potential_uses_observed_slots(void) {
+    Env env;
+    quiet_env(&env);
+    env.ships[1].alive = env.ships[2].alive = 0;
+    env.ships[1].health = env.ships[2].health = 0.0f;
+    Enemy *target = env_add_enemy(&env, 2, 385.0f, 100.0f); /* dead centre above ship 0, ~600 px away */
+    target->vx = target->vy = target->accel = 0.0f;
+    const float xs[8] = {100, 200, 600, 700, 100, 200, 600, 700};
+    const float ys[8] = {500, 500, 500, 500, 350, 350, 350, 350};
+    for (int k = 0; k < 8; k++) { /* eight still explosions, all nearer than the target */
+        Enemy *x = env_add_enemy(&env, 0, xs[k], ys[k]);
+        x->dead = 1;
+        x->radius = EXPLOSION_RADIUS;
+        x->vx = x->vy = x->accel = 0.0f;
+    }
+    int hit = 0;
+    CHECK(env_shot_quality(&env, 0, &hit) > 0.99f && hit == 1); /* the shot exists... */
+    CHECK_NEAR(env_potential(&env, 0), 0.0, 0.0);               /* ...but ship 0 cannot see it */
+    CHECK_NEAR(env_potential(&env, 0), best_slot_quality(&env), 1e-6);
+
+    env.n_enemies--; /* drop the last explosion: the target takes the 8th slot */
+    CHECK(env_potential(&env, 0) > 0.99f);
+    CHECK_NEAR(env_potential(&env, 0), best_slot_quality(&env), 1e-6);
+
+    /* The reward's shaping term follows the observed potential. */
+    RewardConfig cfg = reward_config_default();
+    float r[NUM_SHIPS];
+    ShipAction idle[NUM_SHIPS] = {IDLE, IDLE, IDLE};
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    float seen = env_potential(&env, 0);
+    CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * seen, 1e-5);
+    env.n_enemies++; /* the eighth explosion is back (its slot data was kept): the target is hidden again */
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * seen - 0.5 * seen, 1e-5);
+}
