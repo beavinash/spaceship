@@ -89,3 +89,17 @@ void test_env_weapon_cooldown_is_30_ticks(void) {
     hold(&env, FIRE, IDLE, IDLE, 1);
     CHECK(env.n_missiles == 2);
 }
+
+void test_env_ammo_is_100_without_refill(void) {
+    Env env;
+    quiet_env(&env);
+    ShipAction a[NUM_SHIPS] = {FIRE, IDLE, IDLE};
+    for (int t = 0; t < 3300; t++) {
+        env_tick(&env, a);
+        env.n_missiles = 0; /* isolate the ammo rule from missile flight */
+    }
+    CHECK(env.stats.shots[0] == 100);
+    CHECK(env.ships[0].ammo == 0);
+    CHECK(env.ships[1].ammo == 100);
+    CHECK(env.ships[0].weapon_cd <= 0);
+}

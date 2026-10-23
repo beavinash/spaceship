@@ -59,19 +59,20 @@ static void fire_missile(Env *env, int owner) {
     m->vy = MISSILE_START_VY;
     m->owner = owner;
     m->id = env->next_missile_id++;
+    s->ammo--;
     s->weapon_cd = WEAPON_COOLDOWN_TICKS;
     env->events[owner].shots++;
     env->stats.shots[owner]++;
 }
 
-/* Upstream Control_Spaceship: move, count down the weapon, then fire if ready. */
+/* Upstream Control_Spaceship: move, count down the weapon, then fire if ready and (unlike upstream) loaded. */
 static void control_ship(Env *env, int i, ShipAction a) {
     Ship *s = &env->ships[i];
     move_ship(s, a);
     if (s->weapon_cd > 0) {
         s->weapon_cd--;
     }
-    if (a.fire && s->weapon_cd <= 0) {
+    if (a.fire && s->weapon_cd <= 0 && s->ammo > 0) {
         fire_missile(env, i);
     }
 }

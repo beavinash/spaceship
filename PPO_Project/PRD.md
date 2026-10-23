@@ -178,7 +178,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=weapon` → exit 0; `PASS env_weapon_cooldown_is_30_ticks`
   - regression: `make -C PPO_Project test` → exit 0; `5 tests, 64 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T044 | P0 | depends: T004 | AC-002 | Limit each ship to 100 missiles per episode without refill; done when: holding fire for 3,300 ticks spawns exactly 100 missiles.
+- [x] T044 | P0 | depends: T004 | AC-002 | Limit each ship to 100 missiles per episode without refill; done when: holding fire for 3,300 ticks spawns exactly 100 missiles.
+  - red: `make -C PPO_Project test T=ammo` → exit 2; `tests/test_env.c:101: CHECK(env.stats.shots[0] == 100) failed`
+  - green: `make -C PPO_Project test T=ammo` → exit 0; `PASS env_ammo_is_100_without_refill`
+  - regression: `make -C PPO_Project test` → exit 0; `6 tests, 68 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T005 | P0 | depends: T044 | AC-002 | Advance missiles along the upstream accelerating upward path; done when: tick-by-tick y matches a closed-form fixture until removal above y = −10.
 - [ ] T006 | P0 | depends: T002 | AC-002 | Spawn seeded enemies every 90 ticks with upstream per-type stats; done when: a test asserts spawn ticks, x within [0, 800], per-type stats.
 - [ ] T007 | P0 | depends: T006 | AC-002 | Move enemies with the upstream zigzag reversal rule; done when: a fixture reproduces the reversal tick for a known start x.
