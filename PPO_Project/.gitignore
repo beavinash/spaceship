@@ -2,3 +2,4 @@
 build/
 runs/
 *.tar.gz
+__pycache__/

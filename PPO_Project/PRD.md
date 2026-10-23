@@ -3,6 +3,7 @@
 Status: Approved
 Approval evidence: On 2026-10-22 the user replied "PRD approved as drafted, including brew install of raylib/pkg-config/cjson and the 60-min-per-seed training budget. Build the whole sprint backlog." Earlier answers in chat chose everything in C (no Python, no PufferLib), three ships with separate networks, a score-plus-survival reward, and a raylib viewer.
 Amendment (2026-10-22, user-required): "make sure we have 200 as health for the ships and we do not have infinite ammo. these constraints are required." Ammo choice: "100 per ship, no refill" (its option text included a small per-shot cost). Compute: "We can use my modal.com account for 5-10 minutes of training once the code and smoke test is done", then "let's use and train 2 ships or seeds and one on my mac. first make sure it runs properly on local before modal.com run". These amendments are folded into sections 2–6 below.
+Amendment 2 (2026-10-22): pilots showed PPO learning to camp at the bottom corners and fire at random. Asked to adopt λ 0.99, alignment shaping and sampled evaluation, the user replied "yeah, let's work on alignment shaping properly first. also, if it's going bottom left or right then it's a problem. we have to make sure agents learn when to fire the missile instead of randomly firing every second or more. let's fix the issues first and we can just use mac for cpu related runs." Choices made in chat: "Edge penalty + alignment", "Fire-solution input", "20 min per seed". Modal is no longer used.
 Authoritative backlog: this document, section 5
 
 ## 1. Problem and users
@@ -17,7 +18,8 @@ Research question: can independent PPO learners (one network per ship) score mor
 
 Goals:
 
-- Train three ships with PPO and neural networks in C, with no CUDA or PufferLib. Seed 1 trains on this Mac (Apple M3 Pro, 12 cores, 36 GB); seeds 2–3 train on Modal CPU containers, only after the full pipeline works locally.
+- Train three ships with PPO and neural networks in C, with no CUDA or PufferLib. All three seeds train on this Mac (Apple M3 Pro, 12 cores, 36 GB) for 20 minutes each.
+- Ships should fight from the open field rather than camp at the walls, and fire when a shot is likely to hit rather than at random.
 - Apply two required changes to upstream's rules: ship health is 200 (upstream 1000), and ammo is finite at 100 missiles per ship per episode, with no refill (upstream unlimited).
 - Make the reward, observations, actions, rollouts, and PPO maths explicit and unit-tested.
 - Compare trained checkpoints against baselines on held-out seeds, and watch them in a viewer.
@@ -39,7 +41,7 @@ Later (deferred):
 Non-goals:
 
 - Changing upstream's `init.c`, `Headers/`, `AI_Project/`, or `Game_Data/`; they stay as they are.
-- Python in the simulation, learner, or evaluation; PyTorch, PufferLib, GPU training. The only Python is the Modal launcher, because Modal's SDK requires it. The earlier `feature/cooperative-ppo` branch and `~/Developer/PRD.md` are left untouched.
+- Python, PyTorch, PufferLib, GPU or cloud training. The earlier `feature/cooperative-ppo` branch and `~/Developer/PRD.md` are left untouched.
 - Fixing upstream gameplay quirks (see section 6, Q5).
 
 ## 3. Requirements and constraints
@@ -73,16 +75,18 @@ Episodes start from a seeded reset. They **terminate** when every ship is dead a
 
 **Action per ship** (MultiDiscrete [3, 3, 2], upstream's factorization): horizontal {left, stay, right}, vertical {up, stay, down}, fire {no, yes}. The log-probability is the sum of the three heads.
 
-**Observation per ship** (proposed, 139 float32 values in [−1, 1], computed from centres without consuming random numbers):
+**Observation per ship** (148 float32 values in [−1, 1], computed from centres without consuming random numbers):
 
 | Block | Count | Fields |
 | --- | --- | --- |
-| Self | 7 | x/1000, y/1000, health/200, weapon cooldown/30, ammo/100, alive, time-remaining fraction |
+| Self | 8 | x/1000, y/1000, health/200, weapon cooldown/30, ammo/100, alive, time-remaining fraction, would-hit-now (1 if a missile fired now would hit some live enemy) |
 | Allies | 2 × 6 | alive, dx/1000, dy/1000, health/200, weapon cooldown/30, ammo/100 |
-| Enemies and explosions | 8 × 11 | present, dx/1000, dy/1000, vx/800, vy/1000, health/40, explosion bit, 3 type bits, attack-ready bit |
+| Enemies and explosions | 8 × 12 | present, dx/1000, dy/1000, vx/800, vy/1000, health/40, explosion bit, 3 type bits, attack-ready bit, fire solution (closest approach of a missile fired now, /200, capped at 1) |
 | Missiles | 8 × 4 | present, dx/1000, dy/1000, fired-by-self bit |
 
 Entity slots hold the nearest entities by centre distance, ordered nearest first, zero-padded, with relative values clamped to [−1, 1].
+
+**Fire solution.** For a live enemy above the ship, simulate a missile launched now from the ship's position against that enemy alone. Use the exact tick rules: missile acceleration, enemy acceleration, zigzag reversal and wall clamp. Record the closest centre distance reached before the missile passes the enemy or leaves the arena. A shot "would hit" when that distance is under 10 + 25 px. The prediction ignores other missiles and assumes the ship holds still until it fires.
 
 **Reward per ship per decision** (score + survival; coefficients are configurable, these are defaults):
 
@@ -94,14 +98,18 @@ r_i = 0.125 * points_of_kills_by_i          # +0.25 / +0.5 / +1.0 for type 1 / 2
     - 2.0   * died_i                        # once, on the death decision
     - 0.05  * escapes   (if ship i alive)   # live enemies leaving the bottom
     + 0.0   * ally_kill_points * 0.125      # team-share knob, off by default
+    + 0.5   * (γ·Φ_i(s') − Φ_i(s))          # potential-based alignment shaping (γ = PPO γ)
+    - 0.003 * near_edge_i                   # ship centre within 60 px of a side wall or the bottom
 ```
+
+Φ_i(s) is the best shot quality available to ship i: the maximum over live enemies of max(0, 1 − closest approach / 35). It is 0 without ammo or when the ship is dead. Φ is 0 after a terminal transition (the ship's death or team defeat), so shaping does not change which policy is optimal (Ng et al., 1999). At a time-limit ending, Φ(s') is evaluated normally. The edge penalty is not potential-based. It deliberately makes wall camping costly: about −10.8 per episode if a ship never leaves the band.
 
 Rewards are not clipped. Each component is accumulated and logged per episode. The upstream game score (points per ship and team total) is tracked separately from the shaped return.
 
 ### 3.3 Networks and PPO
 
 - One actor and one critic per ship, 3 ships → 6 MLPs. Each MLP is 139 → 128 → 128 tanh; the actor ends in 8 logits (3 + 3 + 2) and the critic in 1 value. Orthogonal init uses gain √2 for hidden layers, 0.01 for the policy output, and 1 for the value output.
-- PPO defaults: 16 arenas × 128 decisions per rollout (2,048 samples per ship network), γ 0.99, GAE λ 0.95, clip 0.2, 4 epochs, 4 minibatches, Adam lr 3e-4 annealed linearly, ε 1e-5, value coefficient 0.5, entropy coefficient 0.01, global grad-norm clip 0.5, per-minibatch advantage normalization.
+- PPO defaults: 16 arenas × 128 decisions per rollout (2,048 samples per ship network), γ 0.99, GAE λ 0.99 (0.95 attenuated the ~1–2 s missile-flight credit to ~3%), clip 0.2, 4 epochs, 4 minibatches, Adam lr 3e-4 annealed linearly, ε 1e-5, value coefficient 0.5, entropy coefficient 0.01, global grad-norm clip 0.5, per-minibatch advantage normalization.
 - Truncation bootstraps from V(final observation). Termination and death do not bootstrap.
 - Seeds: every arena and each action sampler use their own seeded PCG32 stream, so a run is reproducible on the same build and platform.
 - Training stops at `--total-decisions` or `--max-seconds`, whichever comes first. The run directory holds `manifest.json` (git commit, config, seed), `metrics.csv` (one row per update), and checkpoints.
@@ -109,13 +117,14 @@ Rewards are not clipped. Each component is accumulated and logged per episode. T
 
 ### 3.4 Baselines and evaluation protocol
 
-- Policies: `random` (uniform per head); `legacy` (upstream `Game_Data/trained{0,1,2}.json` tables, frozen, using upstream target locking and grid lookup); `ppo` (checkpoint, argmax per head by default, `--sample` optional).
+- Policies: `random` (uniform per head); `legacy` (upstream `Game_Data/trained{0,1,2}.json` tables, frozen, using upstream target locking and grid lookup); `ppo` (checkpoint, seeded sampling by default, `--greedy` optional; greedy argmax proved unstable for these high-entropy policies).
 - Seed splits: training uses seeds 1, 2, 3 (one independent run each). Checkpoint selection uses development scenarios 1000–1019. The held-out test scenarios 10000–10099 run once, at the end.
 - Report per policy: per-seed rows and mean, standard deviation, and 95% CI for team score, per-ship score, kills, hits, accuracy, damage taken, deaths, ships alive at the end, survival time, and escapes. Reports also carry the binary hash, checkpoint hash, and config.
 - Model-quality targets (hypotheses, not promises):
   - **MQ-1:** on test scenarios, a selected PPO checkpoint's mean team score exceeds both `random` and `legacy` by more than the sum of the two 95% CI half-widths, for at least 2 of 3 training seeds.
   - **MQ-2:** for the same checkpoints, mean deaths per episode are at most `random`'s.
-- Compute: seed 1 trains on this Mac in the background. Seeds 2–3 train on Modal in two parallel CPU containers, each capped at 10 min including build and tests, and only after the local pipeline (tests, smoke, seed 1) works. All three seeds share one `--total-decisions` budget sized from measured throughput so a Modal container finishes in about 8 min. The approved 60 min is the hard cap for the local run. A seed that hits its time cap before the decision budget is reported as truncated. The Modal launcher creates no persistent resources (no Volumes or secrets) and returns the run directory as an archive.
+- Compute: seeds 1–3 train on this Mac, 20 min of wall clock each, side by side in the background. Decisions reached per seed are recorded; seeds stop on time, not on a decision count.
+- Behaviour targets (hypotheses, not promises): **MQ-3**, ships spend at most 20% of alive time with their centre in the edge band. **MQ-4**, accuracy (hits per shot) exceeds random's, and so does the share of shots fired with a predicted hit. Random play's values are measured by the same `eval` command.
 
 ## 4. Acceptance criteria and validation
 
@@ -128,7 +137,7 @@ Software correctness:
 | AC-003 | Identical seed and actions give identical trajectories; different seeds differ | state-hash replay test over 10,000 ticks |
 | AC-004 | Episodes report terminated vs truncated correctly; dead ships leave physics | boundary tests |
 | AC-005 | Per-ship reward equals the configured linear combination; components sum to the total | scripted-event reward fixture |
-| AC-006 | Observations have a fixed length, stay within [−1, 1], order slots by distance, zero-pad, and consume no RNG | observation tests |
+| AC-006 | Observations have a fixed length (148), stay within [−1, 1], order slots by distance, zero-pad, and consume no RNG | observation tests |
 | AC-007 | Analytic gradients of dense layers, tanh, factorized log-prob, and entropy match finite differences | gradient-check tests (tolerance stated in tests) |
 | AC-008 | Adam matches reference values; checkpoints round-trip exactly; corrupt or mismatched files are rejected | optimizer and checkpoint tests |
 | AC-009 | GAE handles termination, truncation bootstrap, and masks; clipped-loss gradients are correct; every active sample is visited once per epoch | PPO maths fixtures |
@@ -140,14 +149,18 @@ Software correctness:
 | AC-015 | The raylib viewer shows three ships with the original artwork, driven by `ppo`, `random`, or `legacy`, and can save a screenshot | `viewer --screenshot` run plus image inspection |
 | AC-016 | ASan/UBSan runs of all tests plus 1M random decisions are clean; the clang static analyzer reports nothing | `make sanitize`, `make analyze` |
 | AC-017 | README commands for build, train, eval, and view run as written | executing each command |
-| AC-020 | One container script builds, tests, smoke-trains, trains, and archives a seed; it runs on this Mac first, then unchanged inside Modal | local script run, then a Modal run |
+| AC-020 | One script builds, tests, smoke-trains, trains, selects, and archives a seed on this Mac | local script run |
+| AC-021 | The fire solution predicts exactly whether an isolated missile fired now hits a given enemy, zigzag reversals included | tests that fire the missile in the real simulation |
+| AC-022 | Alignment shaping equals 0.5 · (γΦ' − Φ) with Φ' = 0 on terminal transitions; the edge penalty applies only inside the 60 px band | reward fixtures |
+| AC-023 | Training metrics and eval reports include edge-time share and the share of shots fired with a predicted hit | CSV/JSON tests |
 
 Model quality (stochastic; measured separately from correctness):
 
 | ID | Observable acceptance criterion | How to verify |
 | --- | --- | --- |
-| AC-018 | Seed 1 (this Mac) and seeds 2–3 (Modal, ≤10 min each) finish training on the shared decision budget with complete metrics and a selected checkpoint | run directories |
-| AC-019 | One test-split report per selected checkpoint against both baselines, with MQ-1 and MQ-2 recorded as pass or fail | `eval --split test` reports |
+| AC-018 | Seeds 1–3 each train 20 min on this Mac with complete metrics and a selected checkpoint | run directories |
+| AC-019 | One test-split report per selected checkpoint against both baselines, with MQ-1 to MQ-4 recorded as pass or fail | `eval --split test` reports |
+| AC-024 | A 10-minute pilot with the new defaults records edge time, accuracy, and predicted-hit shot share against random before the official seeds | pilot report |
 
 Commands (created by T001/T040): `make -C PPO_Project test`, `make -C PPO_Project sanitize`, `make -C PPO_Project analyze`. Dependency audit: the core has no third-party code; the Homebrew packages raylib and cJSON are recorded by version in the README.
 
@@ -364,27 +377,35 @@ Review scope: PPO_Project/
   - regression: `make -C PPO_Project test` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → exit 0; `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T041 | P1 | depends: T033 | AC-017 | Document build, training, evaluation, viewing in the README; done when: every README command runs as written.
-- [ ] T042 | P1 | depends: T031, T036 | AC-018 | Train seed 1 on this Mac under the shared decision budget; done when: its run directory holds full metrics plus a selected checkpoint.
+- [ ] T047 | P0 | depends: T016 | AC-021 | Predict a missile's closest approach to a live enemy if fired now; done when: tests firing real missiles confirm every predicted hit or miss.
+- [ ] T048 | P0 | depends: T047 | AC-006 | Add fire-solution features to the observation; done when: tests check length 148 with per-slot values matching the predictor.
+- [ ] T049 | P0 | depends: T047 | AC-022 | Add potential-based alignment shaping to the reward; done when: a fixture shows 0.5 · (γΦ' − Φ) with Φ' = 0 at death.
+- [ ] T050 | P0 | depends: T015 | AC-022 | Penalize ship time inside the 60 px edge band; done when: a fixture charges the penalty only inside the band.
+- [ ] T051 | P1 | depends: T048, T050 | AC-023 | Report edge-time share with predicted-hit shot share in metrics; done when: CSV plus JSON tests find both values.
+- [ ] T052 | P1 | depends: T049 | AC-024 | Default to λ 0.99 with sampled evaluation; done when: a defaults test passes while `eval --greedy` still works.
+- [ ] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
+- [ ] T042 | P1 | depends: T031, T036, T053 | AC-018 | Train seed 1 on this Mac for 20 minutes; done when: its run directory holds full metrics plus a selected checkpoint.
 - [x] T045 | P1 | depends: T036 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.
   - red: `sh scripts/container_train.sh build/container-check 7 4096 30` → exit 127; `sh: scripts/container_train.sh: No such file or directory`
   - green: `sh scripts/container_train.sh runs/container-check 7 4096 30 --checkpoint-every 1` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`, `smoke: ok`, `"status":"completed"`, `archive: runs/container-check.tar.gz (3.0M)` holding manifest, metrics, checkpoints, selection, logs
   - regression: the script itself runs the full suite: `40 tests, 533 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings` (shell script not covered; no shellcheck installed)
-- [ ] T046 | P1 | depends: T045, T042 | AC-018 | Train seeds 2–3 in parallel Modal CPU containers capped at 10 min each; done when: both returned archives hold full metrics plus a selected checkpoint.
-- [ ] T043 | P1 | depends: T046, T035 | AC-019 | Evaluate selected checkpoints once on test seeds against baselines; done when: the report records MQ-1 plus MQ-2 as pass or fail.
+- [ ] T046 | P1 | depends: T045, T053 | AC-018 | Train seeds 2–3 on this Mac for 20 minutes each; done when: both run directories hold full metrics plus a selected checkpoint.
+- [ ] T043 | P1 | depends: T042, T046, T035 | AC-019 | Evaluate selected checkpoints once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
 
 ## 6. Open questions
 
 Q1 and Q2 were confirmed explicitly; the other items were approved as part of the drafted PRD.
 
 - **Q1 — Homebrew packages.** Resolved: approved. Install `raylib`, `pkg-config`, and `cjson` with `brew install raylib pkg-config cjson`; upstream's root game already needs raylib and cJSON. Impact: needed only for the viewer and the legacy baseline. Blocks T034–T039; nothing else.
-- **Q2 — Compute budget.** Resolved, then amended by the user: seed 1 on this Mac (60 min hard cap), seeds 2–3 on Modal at ≤10 min each, Modal only after local runs work. Assumption: all seeds share one decision budget sized to the Modal window. Blocks T042, T046.
+- **Q2 — Compute budget.** Resolved (amendment 2): 20 minutes per seed, all on this Mac; Modal dropped.
 - **Q3 — Reward coefficients.** Defaults as in section 3.2: hit shaping +0.02, shot cost −0.01, death −2, escape −0.05 per alive ship, ally share 0. All are CLI-configurable and do not block.
 - **Q4 — Episode length.** Episodes are truncated at 120 simulated seconds; upstream runs until every ship dies. Does not block.
 - **Q5 — Upstream quirks ported as-is.** Enemy attack cooldowns are shared across ships, one missile can damage several overlapping enemies, the zigzag modulo rule lets enemies stick at walls, and missiles launch from the ship's top-left corner. Fixing these would change the game, so they stay and are documented. Does not block.
 - **Q6 — Timestep.** Fixed 1/120 s ticks with a 4-tick action repeat (30 decisions/s); cooldowns become integer ticks. Does not block.
 - **Q7 — Layout.** All new code lives in `PPO_Project/` on `feature/ppo-training`. Local `main` was fast-forwarded to upstream `e683c7d`; nothing has been pushed. Assets are read from the root `Pictures/` and `Fonts/` rather than copied. Does not block.
 - **Q8 — Model shape.** 8 nearest enemy/explosion slots, 8 nearest missile slots, a 139-float observation, 2 × 128 tanh hidden layers. Does not block.
-- **Q9 — Evaluation mode.** Greedy (argmax) actions are the primary evaluation; sampled actions are optional. Does not block.
+- **Q9 — Evaluation mode.** Resolved (amendment 2): seeded sampling is the primary evaluation; greedy remains available as `--greedy`.
 - **Q10 — Leftovers.** The untracked root `build/` and `artifacts/` directories from the old branch stay where they are. Does not block.
 - **Q11 — Required rule changes.** Resolved by the user: 200 ship health, 100 missiles per ship per episode with no refill. These intentionally differ from upstream and are labelled as such in code and docs.
+- **Q12 — Shaping and edge defaults.** Assumptions: shaping coefficient 0.5, edge penalty 0.003 per decision, edge band 60 px from the side walls or bottom. All are configurable; the pilot (T053) checks them. Does not block.
