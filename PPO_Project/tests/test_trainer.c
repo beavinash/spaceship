@@ -99,3 +99,23 @@ void test_trainer_threaded_update_matches_serial(void) {
     trainer_free(&serial);
     trainer_free(&threaded);
 }
+
+void test_trainer_time_limit_has_no_bootstrap(void) {
+    TrainConfig cfg = small_config();
+    cfg.episode_ticks = 32; /* 8 decisions: every arena hits the limit inside a 16-step rollout */
+    Trainer tr;
+    CHECK(trainer_init(&tr, &cfg) == 0);
+    trainer_collect(&tr);
+    int ends = 0, nonzero_bootstrap = 0;
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        const Rollout *r = &tr.rollouts[k];
+        for (int i = 0; i < r->steps * r->envs; i++) {
+            ends += r->active[i] && r->dones[i];
+            nonzero_bootstrap += r->bootstrap[i] != 0.0f;
+        }
+    }
+    CHECK(tr.episodes >= 2 * cfg.envs);
+    CHECK(ends >= 2 * cfg.envs);
+    CHECK(nonzero_bootstrap == 0);
+    trainer_free(&tr);
+}

@@ -252,8 +252,9 @@ RewardConfig reward_config_default(void);
 
 /*
  * Per-ship reward for the last decision: a linear combination of that ship's events plus
- * potential-based alignment shaping align * (gamma * Phi(s') - Phi(s)), with Phi = env_potential,
- * and the edge penalty. Call once after every env_step.
+ * potential-based alignment shaping align * (gamma * Phi(s') - Phi(s)), with Phi = env_potential
+ * and Phi(s') = 0 once the episode has ended (any ending, the 120 s limit included), and the edge
+ * penalty. Call once after every env_step.
  * Also adds each component to stats.parts and the total to stats.episode_return.
  */
 void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]);

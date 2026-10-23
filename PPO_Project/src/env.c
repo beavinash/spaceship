@@ -352,7 +352,8 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
     for (int i = 0; i < NUM_SHIPS; i++) {
         const ShipEvents *ev = &env->events[i];
         const Ship *s = &env->ships[i];
-        float phi = env_potential(env, i);
+        /* every ending is terminal, including the 120 s limit (time left is observed), so Phi' = 0 there */
+        float phi = env->terminated || env->truncated ? 0.0f : env_potential(env, i);
         RewardParts part = {
             .kill = cfg->kill_points * (float)ev->kill_points,
             .hit = cfg->hit * (float)ev->hits,

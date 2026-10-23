@@ -141,14 +141,10 @@ void trainer_collect(Trainer *tr) {
             env_rewards(e, &tr->cfg.reward, rewards);
             int ended = e->terminated || e->truncated;
             for (int k = 0; k < NUM_SHIPS; k++) {
-                float bootstrap = 0.0f;
-                if (e->truncated && e->ships[k].alive) {
-                    float final_obs[OBS_DIM];
-                    env_observe(e, k, final_obs);
-                    bootstrap = mlp_forward(&tr->agents[k].critic, final_obs, 1)[0];
-                }
+                /* Death, team defeat, and the 120 s limit are all terminal: the observation shows the
+                 * time left and evaluation scores exactly 120 s, so nothing is bootstrapped past it. */
                 int done = ended || !e->ships[k].alive;
-                rollout_outcome(&tr->rollouts[k], t, n, rewards[k], done, bootstrap);
+                rollout_outcome(&tr->rollouts[k], t, n, rewards[k], done, 0.0f);
             }
             if (ended) {
                 add_episode(tr, e);

@@ -771,7 +771,8 @@ void test_env_alignment_shaping_is_potential_based(void) {
     env_rewards(&env, &cfg, r);
     CHECK_NEAR(env.stats.parts[0].align - before, -0.5 * q, 1e-5);
 
-    /* With gamma = 1 the shaping telescopes over an episode: sum = 0.5 * (Phi_end - Phi_0), Phi_0 = 0. */
+    /* With gamma = 1 the shaping telescopes over an episode: sum = 0.5 * (Phi_end - Phi_0) = 0, since
+     * Phi_0 = 0 at reset and every ending (death, defeat, 120 s limit) is terminal with Phi_end = 0. */
     cfg.gamma = 1.0f;
     env_reset(&env, 77u);
     env.max_ticks = 2400;
@@ -784,8 +785,7 @@ void test_env_alignment_shaping_is_potential_based(void) {
         env_rewards(&env, &cfg, r);
     }
     for (int i = 0; i < NUM_SHIPS; i++) {
-        float end = env.ships[i].alive && env.ships[i].ammo > 0 ? env_shot_quality(&env, i, &hit) : 0.0f;
-        CHECK_NEAR(env.stats.parts[i].align, 0.5 * end, 1e-4);
+        CHECK_NEAR(env.stats.parts[i].align, 0.0, 1e-4);
     }
 }
 
@@ -888,4 +888,25 @@ void test_env_potential_uses_observed_slots(void) {
     env_step(&env, idle);
     env_rewards(&env, &cfg, r);
     CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * seen - 0.5 * seen, 1e-5);
+}
+
+void test_env_time_limit_is_terminal_for_shaping(void) {
+    Env env;
+    quiet_env(&env);
+    env.max_ticks = 8; /* two decisions */
+    Enemy *e = env_add_enemy(&env, 2, 385.0f, 300.0f);
+    e->vx = e->vy = e->accel = 0.0f;
+    RewardConfig cfg = reward_config_default();
+    float r[NUM_SHIPS];
+    ShipAction idle[NUM_SHIPS] = {IDLE, IDLE, IDLE};
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    float q = env_potential(&env, 0);
+    CHECK(q > 0.9f && !env.truncated);
+    CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * q, 1e-5);
+    env_step(&env, idle); /* still lined up, but the 120 s limit (here 8 ticks) ends the episode */
+    CHECK(env.truncated);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * q - 0.5 * q, 1e-5);
+    CHECK_NEAR(env.potential[0], 0.0, 0.0);
 }

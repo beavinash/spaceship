@@ -452,7 +452,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=potential_uses` → exit 0; `PASS env_potential_uses_observed_slots`; the checkpoint's dev play metrics are identical before and after (only the shaped return moves, by design)
   - regression: `make -C PPO_Project test` → exit 0; `48 tests, 596 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T057 | P1 | depends: T056, T028 | AC-027 | Treat the 120 s limit as terminal for learning; done when: tests show zero potential with zero bootstrap at the limit.
+- [x] T057 | P1 | depends: T056, T028 | AC-027 | Treat the 120 s limit as terminal for learning; done when: tests show zero potential with zero bootstrap at the limit.
+  - red: `make -C PPO_Project test T=time_limit` → exit 2; `tests/test_env.c:910: CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * q - 0.5 * q) failed: 0.49000001 vs -0.005` with `tests/test_trainer.c:119: CHECK(nonzero_bootstrap == 0) failed`
+  - green: `make -C PPO_Project test T=time_limit` → exit 0; `PASS env_time_limit_is_terminal_for_shaping`, `PASS trainer_time_limit_has_no_bootstrap`; the γ = 1 telescoping check now expects 0 at every ending; the checkpoint's dev play metrics are identical
+  - regression: `make -C PPO_Project test` → exit 0; `50 tests, 605 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T058 | P1 | depends: T057 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
 - [x] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
   - red: before this task, `ppo eval --split test` without `--final` → exit 1 (`eval: the test split is held out; pass --final for the one final evaluation`); no test-split result existed
