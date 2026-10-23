@@ -82,4 +82,4 @@ These are from the 100 held-out test scenarios, with actions sampled from the po
 | Ships lost per episode | 0.00 | 1.40 | 0.65 |
 | Accuracy | 0.288 | 0.256 | 0.269 |
 
-This is a single 10-minute training run. Design details and full evidence are in `PRD.md` and `WALKTHROUGH.md`.
+This is a single 10-minute training run. How the reward works for the three ships, with worked calculations, is in `REWARD.md`. Design details and full evidence are in `PRD.md` and `WALKTHROUGH.md`.
