@@ -457,7 +457,12 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=time_limit` → exit 0; `PASS env_time_limit_is_terminal_for_shaping`, `PASS trainer_time_limit_has_no_bootstrap`; the γ = 1 telescoping check now expects 0 at every ending; the checkpoint's dev play metrics are identical
   - regression: `make -C PPO_Project test` → exit 0; `50 tests, 605 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T058 | P1 | depends: T057 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
+- [x] T059 | P1 | depends: T057 | AC-028 | Report the mean reward components per ship in eval reports; done when: a test finds all nine components summing to the reported return.
+  - red: `make -C PPO_Project test T=reward_components` → exit 2; `tests/test_eval.c:184:25: error: no member named 'reward_kill' in 'EpisodeResult'`
+  - green: `make -C PPO_Project test T=reward_components` → exit 0; `PASS eval_reports_reward_components` (nine components per seed sum to return_mean within 1e-4)
+  - regression: `make -C PPO_Project test` → exit 0; `51 tests, 618 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
+- [ ] T058 | P1 | depends: T059 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
 - [x] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
   - red: before this task, `ppo eval --split test` without `--final` → exit 1 (`eval: the test split is held out; pass --final for the one final evaluation`); no test-split result existed
   - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final` → `team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`; random `103.68 +/- 4.65, deaths 1.40`; legacy `103.78 +/- 4.42, deaths 0.65`; judged: `MQ-1 PASS`, `MQ-2 PASS`, `MQ-3 PASS` (edge 0.033), `MQ-4 PASS` (accuracy 0.288 vs 0.256, aimed 0.243 vs 0.229); single training seed, so the 2-of-3-seeds clause is not assessable

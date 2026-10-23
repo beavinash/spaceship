@@ -208,6 +208,16 @@ static void run_episode(Policy *p, int seed, EpisodeResult *r) {
         r->alive_at_end += env.ships[k].alive;
         r->survival_seconds += (double)s->alive_ticks[k] / TICK_HZ / NUM_SHIPS;
         r->return_mean += s->episode_return[k] / NUM_SHIPS;
+        const RewardParts *q = &s->parts[k];
+        r->reward_kill += q->kill / NUM_SHIPS;
+        r->reward_hit += q->hit / NUM_SHIPS;
+        r->reward_shot += q->shot / NUM_SHIPS;
+        r->reward_damage += q->damage / NUM_SHIPS;
+        r->reward_death += q->death / NUM_SHIPS;
+        r->reward_escape += q->escape / NUM_SHIPS;
+        r->reward_ally += q->ally / NUM_SHIPS;
+        r->reward_align += q->align / NUM_SHIPS;
+        r->reward_edge += q->edge / NUM_SHIPS;
     }
     double aimed = 0.0, edge = 0.0, alive = 0.0;
     for (int k = 0; k < NUM_SHIPS; k++) {
@@ -305,6 +315,15 @@ static const Metric METRICS[] = {
     {"spawned", offsetof(EpisodeResult, spawned)},
     {"episode_seconds", offsetof(EpisodeResult, episode_seconds)},
     {"return_mean", offsetof(EpisodeResult, return_mean)},
+    {"reward_kill", offsetof(EpisodeResult, reward_kill)},
+    {"reward_hit", offsetof(EpisodeResult, reward_hit)},
+    {"reward_shot", offsetof(EpisodeResult, reward_shot)},
+    {"reward_damage", offsetof(EpisodeResult, reward_damage)},
+    {"reward_death", offsetof(EpisodeResult, reward_death)},
+    {"reward_escape", offsetof(EpisodeResult, reward_escape)},
+    {"reward_ally", offsetof(EpisodeResult, reward_ally)},
+    {"reward_align", offsetof(EpisodeResult, reward_align)},
+    {"reward_edge", offsetof(EpisodeResult, reward_edge)},
 };
 #define N_METRICS ((int)(sizeof METRICS / sizeof METRICS[0]))
 

@@ -171,3 +171,29 @@ void test_eval_defaults_to_sampled_actions(void) {
         agent_free(&agents[k]);
     }
 }
+
+void test_eval_reports_reward_components(void) {
+    Policy p;
+    policy_random(&p);
+    static EpisodeResult res[100];
+    int n = 0;
+    CHECK(eval_run(&p, "dev", 0, res, &n) == 0 && n == 20);
+    int sums_ok = 1;
+    for (int i = 0; i < n; i++) {
+        const EpisodeResult *r = &res[i];
+        double sum = r->reward_kill + r->reward_hit + r->reward_shot + r->reward_damage + r->reward_death +
+                     r->reward_escape + r->reward_ally + r->reward_align + r->reward_edge;
+        sums_ok &= fabs(sum - r->return_mean) < 1e-4;
+    }
+    CHECK(sums_ok);
+    CHECK(res[0].reward_shot < 0.0 && res[0].reward_escape < 0.0 && res[0].reward_kill > 0.0);
+    ReportMeta meta = {.policy = "random", .split = "dev", .checkpoint = NULL, .binary = NULL};
+    CHECK(eval_write_json("build/test-eval-components.json", &meta, &p, res, n) == 0);
+    const char *keys[] = {"reward_kill", "reward_hit", "reward_shot", "reward_damage", "reward_death",
+                          "reward_escape", "reward_ally", "reward_align", "reward_edge"};
+    for (int k = 0; k < 9; k++) {
+        char needle[64];
+        snprintf(needle, sizeof needle, "\"%s\": {\"mean\": ", keys[k]);
+        CHECK(file_contains("build/test-eval-components.json", needle));
+    }
+}
