@@ -68,3 +68,34 @@ void test_trainer_collects_per_ship_rollouts(void) {
     CHECK(gae_ok);
     trainer_free(&tr);
 }
+
+void test_trainer_threaded_update_matches_serial(void) {
+    TrainConfig cfg = small_config();
+    Trainer serial, threaded;
+    CHECK(trainer_init(&serial, &cfg) == 0);
+    CHECK(trainer_init(&threaded, &cfg) == 0);
+    PpoStats st_serial[NUM_SHIPS], st_threaded[NUM_SHIPS];
+    for (int round = 0; round < 2; round++) {
+        trainer_collect(&serial);
+        trainer_collect(&threaded);
+        trainer_update(&serial, &cfg.ppo, st_serial, 1);
+        trainer_update(&threaded, &cfg.ppo, st_threaded, NUM_SHIPS);
+    }
+    int same = 1;
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        same &= memcmp(serial.agents[k].actor.params, threaded.agents[k].actor.params,
+                       (size_t)serial.agents[k].actor.n_params * sizeof(float)) == 0;
+        same &= memcmp(serial.agents[k].critic.params, threaded.agents[k].critic.params,
+                       (size_t)serial.agents[k].critic.n_params * sizeof(float)) == 0;
+        same &= st_serial[k].pg_loss == st_threaded[k].pg_loss && st_serial[k].v_loss == st_threaded[k].v_loss;
+    }
+    CHECK(same);
+    /* The update really changed the weights. */
+    Trainer untouched;
+    CHECK(trainer_init(&untouched, &cfg) == 0);
+    CHECK(memcmp(untouched.agents[0].actor.params, serial.agents[0].actor.params,
+                 (size_t)untouched.agents[0].actor.n_params * sizeof(float)) != 0);
+    trainer_free(&untouched);
+    trainer_free(&serial);
+    trainer_free(&threaded);
+}

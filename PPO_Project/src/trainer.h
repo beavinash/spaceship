@@ -67,4 +67,10 @@ void ship_agent_nets(Agent agents[NUM_SHIPS], Mlp *nets[CHECKPOINT_NETS]);
 /* Fill every ship's rollout with cfg.steps decisions per arena, then compute GAE. */
 void trainer_collect(Trainer *tr);
 
+/*
+ * One PPO update per ship from the collected rollouts. Ships share nothing, so with threads > 1
+ * each ship's update runs on its own pthread and the result is identical to the serial order.
+ */
+void trainer_update(Trainer *tr, const PpoConfig *cfg, PpoStats stats[NUM_SHIPS], int threads);
+
 #endif

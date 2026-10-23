@@ -174,8 +174,8 @@ int train_run(const RunConfig *rc) {
         trainer_collect(&tr);
         PpoStats st[NUM_SHIPS];
         PpoStats mean = {0};
+        trainer_update(&tr, &pc, st, NUM_SHIPS);
         for (int k = 0; k < NUM_SHIPS; k++) {
-            ppo_update(&tr.agents[k], &tr.rollouts[k], &pc, &tr.update_rng[k], &st[k]);
             mean.pg_loss += st[k].pg_loss / NUM_SHIPS;
             mean.v_loss += st[k].v_loss / NUM_SHIPS;
             mean.entropy += st[k].entropy / NUM_SHIPS;

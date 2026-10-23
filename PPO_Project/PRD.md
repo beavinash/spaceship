@@ -313,7 +313,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=manifest` → exit 0; `PASS train_run_writes_manifest_and_checkpoints`; `make -C PPO_Project smoke` manifest shows `"status": "completed"`
   - regression: `make -C PPO_Project test` → exit 0; `33 tests, 400 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 17 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T031 | P1 | depends: T030 | AC-012 | Update the three ship networks on parallel pthreads; done when: threaded results match serial results bit for bit for a fixed seed.
+- [x] T031 | P1 | depends: T030 | AC-012 | Update the three ship networks on parallel pthreads; done when: threaded results match serial results bit for bit for a fixed seed.
+  - red: `make -C PPO_Project test T=threaded` → exit 2; `tests/test_trainer.c:81:9: error: call to undeclared function 'trainer_update'`
+  - green: `make -C PPO_Project test T=threaded` → exit 0; `PASS trainer_threaded_update_matches_serial`
+  - regression: `make -C PPO_Project test` → exit 0; `34 tests, 405 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 17 files`; ThreadSanitizer build of the test runner, filter `threaded` → `1 tests, 5 checks, 0 failed checks, 0 failed tests` with no race reports; dependency audit: unavailable (no third-party code in the core)
 - [ ] T032 | P0 | depends: T017 | AC-013 | Add an `eval` command reporting per-seed metrics for the random policy; done when: a dev-split JSON report lists 20 seed rows with mean, std, 95% CI.
 - [ ] T033 | P0 | depends: T032, T022 | AC-013 | Evaluate PPO checkpoints in the `eval` command; done when: a checkpoint report matches the random report schema.
 - [ ] T034 | P1 | depends: T032 | AC-014 | Load upstream `Game_Data` tables as a frozen legacy policy; done when: tests reproduce upstream probability lookups for fixed displacements.

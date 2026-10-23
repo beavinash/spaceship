@@ -1,5 +1,7 @@
 #include "trainer.h"
 
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -157,4 +159,37 @@ void trainer_collect(Trainer *tr) {
         rollout_gae(&tr->rollouts[k], tr->values, tr->cfg.ppo.gamma, tr->cfg.ppo.lambda);
     }
     free(acts);
+}
+
+typedef struct {
+    Trainer *tr;
+    const PpoConfig *cfg;
+    PpoStats *stats;
+    int ship;
+} UpdateJob;
+
+static void *update_ship(void *arg) {
+    UpdateJob *job = arg;
+    Trainer *tr = job->tr;
+    ppo_update(&tr->agents[job->ship], &tr->rollouts[job->ship], job->cfg, &tr->update_rng[job->ship], job->stats);
+    return NULL;
+}
+
+void trainer_update(Trainer *tr, const PpoConfig *cfg, PpoStats stats[NUM_SHIPS], int threads) {
+    UpdateJob jobs[NUM_SHIPS];
+    pthread_t ids[NUM_SHIPS];
+    int started[NUM_SHIPS] = {0};
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        jobs[k] = (UpdateJob){tr, cfg, &stats[k], k};
+        if (threads > 1 && pthread_create(&ids[k], NULL, update_ship, &jobs[k]) == 0) {
+            started[k] = 1;
+        } else {
+            update_ship(&jobs[k]); /* serial, or a thread could not be started */
+        }
+    }
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        if (started[k]) {
+            pthread_join(ids[k], NULL);
+        }
+    }
 }
