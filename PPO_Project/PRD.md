@@ -5,6 +5,12 @@ Approval evidence: On 2026-10-22 the user replied "PRD approved as drafted, incl
 Amendment (2026-10-22, user-required): "make sure we have 200 as health for the ships and we do not have infinite ammo. these constraints are required." Ammo choice: "100 per ship, no refill" (its option text included a small per-shot cost). Compute: "We can use my modal.com account for 5-10 minutes of training once the code and smoke test is done", then "let's use and train 2 ships or seeds and one on my mac. first make sure it runs properly on local before modal.com run". These amendments are folded into sections 2–6 below.
 Amendment 2 (2026-10-22): pilots showed PPO learning to camp at the bottom corners and fire at random. Asked to adopt λ 0.99, alignment shaping and sampled evaluation, the user replied "yeah, let's work on alignment shaping properly first. also, if it's going bottom left or right then it's a problem. we have to make sure agents learn when to fire the missile instead of randomly firing every second or more. let's fix the issues first and we can just use mac for cpu related runs." Choices made in chat: "Edge penalty + alignment", "Fire-solution input", "20 min per seed". Modal is no longer used.
 Amendment 3 (2026-10-22): three minutes into the 20-minute seeds the user said "don't run anymore seeds as it's enough for now". The seed runs were stopped and discarded. The 10-minute pilot (seed 101) is the trained result. Its selected checkpoint is the one kept in git and evaluated once on the held-out split.
+Amendment 4 (2026-10-23): the user asked for "an another document on reward function and how it works in this spaceship for 3. Make it detailed with calculations and fix any bugs that can arise while you are investigating deeply." An audit of 40 episodes each for the checkpoint and for random play found:
+- **Sound:** components sum to the return within 1e-4; no reward was lost to dead ships; the decision-end edge check agrees with time in the band 99.3–99.9% of the time.
+- **Hidden potential.** In about a third of the decisions where Φ > 0, Φ's best enemy is outside the ship's 8 observed slots, because explosions fill 5.2 of the 8 slots on average.
+- **Time limit.** The remaining time is observed and evaluation ends at 120 s, yet training bootstrapped past the limit.
+
+T056–T057 fix the two learning-signal defects without changing observations, so the committed checkpoint's play and scores are unaffected. T058 documents the reward. Re-ranking the enemy slots needs retraining and is left as a recommendation.
 Authoritative backlog: this document, section 5
 
 ## 1. Problem and users
@@ -103,15 +109,16 @@ r_i = 0.125 * points_of_kills_by_i          # +0.25 / +0.5 / +1.0 for type 1 / 2
     - 0.003 * near_edge_i                   # ship centre within 60 px of a side wall or the bottom
 ```
 
-Φ_i(s) is the best shot quality available to ship i: the maximum over live enemies of max(0, 1 − offset / 70). The 70 px ramp gives near misses partial credit, so shaping leads toward a hit. It is 0 without ammo or when the ship is dead. Φ is 0 after a terminal transition (the ship's death or team defeat), so shaping does not change which policy is optimal (Ng et al., 1999). At a time-limit ending, Φ(s') is evaluated normally. The edge penalty is not potential-based. It deliberately makes wall camping costly: about −10.8 per episode if a ship never leaves the band.
+Φ_i(s) is the best shot quality available to ship i: the maximum of max(0, 1 − offset / 70) over the live enemies in ship i's 8 observed enemy slots (amendment 4). It therefore equals the largest per-slot shot-quality input, so the critic can see it. The 70 px ramp gives near misses partial credit, so shaping leads toward a hit. It is 0 without ammo or when the ship is dead. Φ is 0 after a terminal transition (the ship's death, team defeat, or the 120 s limit), so shaping does not change which policy is optimal (Ng et al., 1999). The edge penalty is not potential-based. It deliberately makes wall camping costly: about −10.8 per episode if a ship never leaves the band.
 
 Rewards are not clipped. Each component is accumulated and logged per episode. The upstream game score (points per ship and team total) is tracked separately from the shaped return.
 
 ### 3.3 Networks and PPO
 
 - One actor and one critic per ship, 3 ships → 6 MLPs. Each MLP is 139 → 128 → 128 tanh; the actor ends in 8 logits (3 + 3 + 2) and the critic in 1 value. Orthogonal init uses gain √2 for hidden layers, 0.01 for the policy output, and 1 for the value output.
+- The 120 s limit is a true ending for learning (amendment 4): the remaining time is observed, and evaluation scores exactly 120 s. Training therefore neither bootstraps past it nor keeps a shaping potential there (Pardo et al., 2018, "Time Limits in Reinforcement Learning").
 - PPO defaults: 16 arenas × 128 decisions per rollout (2,048 samples per ship network), γ 0.99, GAE λ 0.99 (0.95 attenuated the ~1–2 s missile-flight credit to ~3%), clip 0.2, 4 epochs, 4 minibatches, Adam lr 3e-4 annealed linearly, ε 1e-5, value coefficient 0.5, entropy coefficient 0.01, global grad-norm clip 0.5, per-minibatch advantage normalization.
-- Truncation bootstraps from V(final observation). Termination and death do not bootstrap.
+- No ending bootstraps for the game: death, team defeat, and the 120 s limit are all terminal. The learner keeps time-limit bootstrapping (used by the toy task, whose observation has no clock).
 - Seeds: every arena and each action sampler use their own seeded PCG32 stream, so a run is reproducible on the same build and platform.
 - Training stops at `--total-decisions` or `--max-seconds`, whichever comes first. The run directory holds `manifest.json` (git commit, config, seed), `metrics.csv` (one row per update), and checkpoints.
 - Metrics per update: decisions per second, mean episode return per ship, team score, kills, hits, damage taken, deaths, escapes, policy loss, value loss, entropy, approximate KL, clip fraction, explained variance, learning rate.
@@ -161,6 +168,9 @@ Model quality (stochastic; measured separately from correctness):
 | --- | --- | --- |
 | AC-018 | Seeds 1–3 each train 20 min on this Mac with complete metrics and a selected checkpoint | run directories |
 | AC-019 | One test-split report per selected checkpoint against both baselines, with MQ-1 to MQ-4 recorded as pass or fail | `eval --split test` reports |
+| AC-026 | The shaping potential uses only the ship's observed enemy slots and equals the largest per-slot shot-quality input | potential tests |
+| AC-027 | For learning, the 120 s limit is terminal: zero bootstrap, zero potential after it | env and rollout tests |
+| AC-028 | `REWARD.md` explains every reward term for the three ships with worked calculations; each number traces to code, a test, or a reproducible command | document review plus reproduction |
 | AC-025 | Git holds code, tests, docs, and only selected checkpoints (plus a short index); logs, metrics, reports, build output, and periodic checkpoints stay ignored (user request: "commit the most important code, checkpoints, PPO code, instead of logs and build files") | `git ls-files` |
 | AC-024 | A 10-minute pilot with the new defaults records edge time, accuracy, and predicted-hit shot share against random before the official seeds | pilot report |
 
@@ -437,6 +447,9 @@ Review scope: PPO_Project/
   - green: `git ls-files PPO_Project/checkpoints` → `PPO_Project/checkpoints/index.json` and `PPO_Project/checkpoints/ppo_seed101.bin` (868,096 bytes); reloading it reproduces `team score 119.30 +/- 10.29, deaths 0.00` on dev
   - regression: `git ls-files PPO_Project` lists no files under runs/ or build/ (both still ignored)
   - scans: not applicable (data and docs only)
+- [ ] T056 | P1 | depends: T049, T048 | AC-026 | Compute the shaping potential over the ship's observed enemy slots only; done when: a test shows an aligned enemy outside the 8 slots adds nothing while the potential equals the best slot input.
+- [ ] T057 | P1 | depends: T056, T028 | AC-027 | Treat the 120 s limit as terminal for learning; done when: tests show zero potential with zero bootstrap at the limit.
+- [ ] T058 | P1 | depends: T057 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
 - [x] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
   - red: before this task, `ppo eval --split test` without `--final` → exit 1 (`eval: the test split is held out; pass --final for the one final evaluation`); no test-split result existed
   - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final` → `team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`; random `103.68 +/- 4.65, deaths 1.40`; legacy `103.78 +/- 4.42, deaths 0.65`; judged: `MQ-1 PASS`, `MQ-2 PASS`, `MQ-3 PASS` (edge 0.033), `MQ-4 PASS` (accuracy 0.288 vs 0.256, aimed 0.243 vs 0.229); single training seed, so the 2-of-3-seeds clause is not assessable
