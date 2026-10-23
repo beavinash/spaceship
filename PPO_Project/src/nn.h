@@ -51,4 +51,23 @@ void mlp_backward(Mlp *m, const float *x, const float *gout, int batch);
 
 void mlp_zero_grad(Mlp *m);
 
+/* Adam with PyTorch-style bias correction; defaults beta1 0.9, beta2 0.999, eps 1e-5. */
+typedef struct {
+    int n;
+    int t;
+    float beta1;
+    float beta2;
+    float eps;
+    float *m;
+    float *v;
+} Adam;
+
+/* Returns 0, or -1 if memory runs out. */
+int adam_init(Adam *a, int n);
+void adam_free(Adam *a);
+void adam_step(Adam *a, float *params, const float *grads, float lr);
+
+/* Scales all gradient groups together so their joint L2 norm is at most max_norm; returns the norm before. */
+float clip_grad_norm(float *const *groups, const int *sizes, int count, float max_norm);
+
 #endif

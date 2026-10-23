@@ -166,3 +166,34 @@ void test_nn_mlp_init_shapes_and_gradients(void) {
     CHECK(cleared);
     mlp_free(&m);
 }
+
+void test_nn_adam_and_gradient_clipping(void) {
+    Adam adam;
+    CHECK(adam_init(&adam, 2) == 0);
+    CHECK_NEAR(adam.beta1, 0.9, 1e-7);
+    CHECK_NEAR(adam.beta2, 0.999, 1e-7);
+    CHECK_NEAR(adam.eps, 1e-5, 1e-12);
+    float p[2] = {1.0f, -2.0f};
+    const float g1[2] = {0.5f, -0.1f};
+    const float g2[2] = {-0.2f, 0.3f};
+    /* Reference: PyTorch-style bias-corrected Adam, computed independently in double precision. */
+    adam_step(&adam, p, g1, 0.1f);
+    CHECK_NEAR(p[0], 0.9000020, 2e-6);
+    CHECK_NEAR(p[1], -1.9000100, 2e-6);
+    adam_step(&adam, p, g2, 0.1f);
+    CHECK_NEAR(p[0], 0.8654423, 2e-6);
+    CHECK_NEAR(p[1], -1.9494268, 2e-6);
+    CHECK(adam.t == 2);
+    adam_free(&adam);
+
+    float a[2] = {3.0f, 0.0f};
+    float b[1] = {4.0f};
+    float *groups[2] = {a, b};
+    const int sizes[2] = {2, 1};
+    CHECK_NEAR(clip_grad_norm(groups, sizes, 2, 1.0f), 5.0, 1e-6);
+    CHECK_NEAR(a[0], 0.6, 1e-6);
+    CHECK_NEAR(a[1], 0.0, 0.0);
+    CHECK_NEAR(b[0], 0.8, 1e-6);
+    CHECK_NEAR(clip_grad_norm(groups, sizes, 2, 10.0f), 1.0, 1e-6);
+    CHECK_NEAR(a[0], 0.6, 1e-6); /* already within the limit: unchanged */
+}

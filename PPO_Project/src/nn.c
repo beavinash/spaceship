@@ -199,3 +199,56 @@ void mlp_backward(Mlp *m, const float *x, const float *gout, int batch) {
 void mlp_zero_grad(Mlp *m) {
     memset(m->grads, 0, (size_t)m->n_params * sizeof *m->grads);
 }
+
+int adam_init(Adam *a, int n) {
+    memset(a, 0, sizeof *a);
+    a->n = n;
+    a->beta1 = 0.9f;
+    a->beta2 = 0.999f;
+    a->eps = 1e-5f;
+    a->m = calloc((size_t)n, sizeof *a->m);
+    a->v = calloc((size_t)n, sizeof *a->v);
+    if (!a->m || !a->v) {
+        adam_free(a);
+        return -1;
+    }
+    return 0;
+}
+
+void adam_free(Adam *a) {
+    free(a->m);
+    free(a->v);
+    memset(a, 0, sizeof *a);
+}
+
+void adam_step(Adam *a, float *params, const float *grads, float lr) {
+    a->t++;
+    const double c1 = 1.0 - pow(a->beta1, a->t);
+    const double c2 = 1.0 - pow(a->beta2, a->t);
+    for (int k = 0; k < a->n; k++) {
+        a->m[k] = a->beta1 * a->m[k] + (1.0f - a->beta1) * grads[k];
+        a->v[k] = a->beta2 * a->v[k] + (1.0f - a->beta2) * grads[k] * grads[k];
+        const double m_hat = a->m[k] / c1;
+        const double v_hat = a->v[k] / c2;
+        params[k] -= (float)(lr * m_hat / (sqrt(v_hat) + a->eps));
+    }
+}
+
+float clip_grad_norm(float *const *groups, const int *sizes, int count, float max_norm) {
+    double sq = 0.0;
+    for (int g = 0; g < count; g++) {
+        for (int k = 0; k < sizes[g]; k++) {
+            sq += (double)groups[g][k] * groups[g][k];
+        }
+    }
+    const double norm = sqrt(sq);
+    if (norm > max_norm) {
+        const float scale = (float)(max_norm / (norm + 1e-6));
+        for (int g = 0; g < count; g++) {
+            for (int k = 0; k < sizes[g]; k++) {
+                groups[g][k] *= scale;
+            }
+        }
+    }
+    return (float)norm;
+}

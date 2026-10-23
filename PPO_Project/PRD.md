@@ -263,7 +263,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=dist_` → exit 0; `PASS dist_factorized_logprob_entropy_and_gradients`
   - regression: `make -C PPO_Project test` → exit 0; `22 tests, 252 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 8 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T021 | P0 | depends: T018 | AC-008 | Implement Adam with global gradient-norm clipping; done when: one step on fixed gradients matches reference values.
+- [x] T021 | P0 | depends: T018 | AC-008 | Implement Adam with global gradient-norm clipping; done when: one step on fixed gradients matches reference values.
+  - red: `make -C PPO_Project test T=adam` → exit 2; `tests/test_nn.c:171:5: error: use of undeclared identifier 'Adam'`
+  - green: `make -C PPO_Project test T=adam` → exit 0; `PASS nn_adam_and_gradient_clipping`
+  - regression: `make -C PPO_Project test` → exit 0; `23 tests, 267 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 8 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T022 | P0 | depends: T019 | AC-008 | Save versioned checkpoints with dimension headers plus checksums; done when: round trips are exact while corrupt or mismatched files are rejected.
 - [ ] T023 | P0 | depends: T020 | AC-009 | Store per-ship rollout samples with activity masks; done when: a buffer test shows post-death steps masked.
 - [ ] T024 | P0 | depends: T023 | AC-009 | Compute GAE with termination, truncation bootstrap, masks; done when: outputs match a hand-computed fixture.
