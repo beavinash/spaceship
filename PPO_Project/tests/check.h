@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 extern int check_total;
 extern int check_failed;
@@ -27,5 +28,18 @@ extern int check_failed;
                     __FILE__, __LINE__, #a, #b, check_a_, check_b_);                   \
         }                                                                              \
     } while (0)
+
+/* 1 if the file at path contains needle (first 1 MB). */
+static inline int file_contains(const char *path, const char *needle) {
+    static char buf[1 << 20];
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return 0;
+    }
+    size_t n = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    buf[n] = '\0';
+    return strstr(buf, needle) != NULL;
+}
 
 #endif

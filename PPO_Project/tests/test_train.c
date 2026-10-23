@@ -77,18 +77,6 @@ void test_train_run_writes_metrics_csv(void) {
     CHECK(entropy > 0.0);
 }
 
-static int file_contains(const char *path, const char *needle) {
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        return 0;
-    }
-    static char buf[65536];
-    size_t n = fread(buf, 1, sizeof buf - 1, f);
-    fclose(f);
-    buf[n] = '\0';
-    return strstr(buf, needle) != NULL;
-}
-
 void test_train_run_writes_manifest_and_checkpoints(void) {
     RunConfig rc = run_config_default();
     rc.train.envs = 2;

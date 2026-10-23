@@ -87,8 +87,11 @@ int legacy_available(void) {
     return 1;
 }
 
-/* Upstream Read_Data: entry i of a section belongs to cell (x, y) and option i % options. */
-static void load_section(const cJSON *root, const char *name, int options, LegacyTables *t) {
+/*
+ * Upstream Read_Data: entry i of a section belongs to cell (x, y) and option i % options.
+ * The first `kept` options of each cell go to dst[(x * LEGACY_GRID + y) * kept + option].
+ */
+static void load_section(const cJSON *root, const char *name, int options, int kept, float *dst) {
     const cJSON *array = cJSON_GetObjectItemCaseSensitive(root, name);
     int count = cJSON_GetArraySize(array);
     for (int i = 0; i < count; i++) {
@@ -105,15 +108,8 @@ static void load_section(const cJSON *root, const char *name, int options, Legac
             continue;
         }
         int x = (int)xv, y = (int)yv, k = i % options;
-        float prob = (float)p->valuedouble; /* upstream keeps probabilities as float */
-        if (options == 2) {
-            if (k == 0) {
-                t->shoot[x][y] = prob;
-            }
-        } else if (name[5] == 'h') {
-            t->move_h[x][y][k] = prob;
-        } else {
-            t->move_v[x][y][k] = prob;
+        if (k < kept) {
+            dst[(x * LEGACY_GRID + y) * kept + k] = (float)p->valuedouble; /* upstream keeps probabilities as float */
         }
     }
 }
@@ -156,9 +152,9 @@ LegacyTables *legacy_load(const char *path) {
             }
         }
     }
-    load_section(root, "shoot", 2, t);
-    load_section(root, "move_h", 3, t);
-    load_section(root, "move_v", 3, t);
+    load_section(root, "shoot", 2, 1, &t->shoot[0][0]); /* only "shoot" (option 0) is used */
+    load_section(root, "move_h", 3, 3, &t->move_h[0][0][0]);
+    load_section(root, "move_v", 3, 3, &t->move_v[0][0][0]);
     cJSON_Delete(root);
     return t;
 }

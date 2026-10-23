@@ -5,18 +5,6 @@
 #include "eval.h"
 #include "trainer.h"
 
-static int file_has(const char *path, const char *needle) {
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        return 0;
-    }
-    static char buf[1 << 20];
-    size_t n = fread(buf, 1, sizeof buf - 1, f);
-    fclose(f);
-    buf[n] = '\0';
-    return strstr(buf, needle) != NULL;
-}
-
 void test_eval_random_policy_dev_report(void) {
     int first = 0, count = 0;
     CHECK(eval_split("dev", &first, &count) == 0 && first == 1000 && count == 20);
@@ -57,18 +45,18 @@ void test_eval_random_policy_dev_report(void) {
     remove(path);
     ReportMeta meta = {.policy = "random", .split = "dev", .checkpoint = NULL, .binary = NULL};
     CHECK(eval_write_json(path, &meta, &p, res, n) == 0);
-    CHECK(file_has(path, "\"policy\": \"random\""));
-    CHECK(file_has(path, "\"split\": \"dev\""));
-    CHECK(file_has(path, "\"episodes\": 20"));
-    CHECK(file_has(path, "\"per_seed\": ["));
-    CHECK(file_has(path, "\"seed\": 1019"));
-    CHECK(file_has(path, "\"team_score\": {\"mean\": "));
-    CHECK(file_has(path, "\"ci95\": "));
-    CHECK(file_has(path, "\"deaths\": {\"mean\": "));
-    CHECK(file_has(path, "\"escapes\": {\"mean\": "));
-    CHECK(file_has(path, "\"ship_health\": 200"));
-    CHECK(file_has(path, "\"edge_share\": {\"mean\": "));
-    CHECK(file_has(path, "\"aimed_shot_share\": {\"mean\": "));
+    CHECK(file_contains(path, "\"policy\": \"random\""));
+    CHECK(file_contains(path, "\"split\": \"dev\""));
+    CHECK(file_contains(path, "\"episodes\": 20"));
+    CHECK(file_contains(path, "\"per_seed\": ["));
+    CHECK(file_contains(path, "\"seed\": 1019"));
+    CHECK(file_contains(path, "\"team_score\": {\"mean\": "));
+    CHECK(file_contains(path, "\"ci95\": "));
+    CHECK(file_contains(path, "\"deaths\": {\"mean\": "));
+    CHECK(file_contains(path, "\"escapes\": {\"mean\": "));
+    CHECK(file_contains(path, "\"ship_health\": 200"));
+    CHECK(file_contains(path, "\"edge_share\": {\"mean\": "));
+    CHECK(file_contains(path, "\"aimed_shot_share\": {\"mean\": "));
     int shares_ok = 1;
     for (int i = 0; i < n; i++) {
         shares_ok &= res[i].edge_share >= 0.0 && res[i].edge_share <= 1.0;
@@ -135,8 +123,8 @@ void test_eval_ppo_checkpoint_report_matches_schema(void) {
 
     ReportMeta meta = {.policy = "ppo", .split = "dev", .checkpoint = ckpt, .binary = NULL};
     CHECK(eval_write_json("build/test-eval-ppo.json", &meta, &p, res, n) == 0);
-    CHECK(file_has("build/test-eval-ppo.json", "\"checkpoint\": {\"path\": \"build/test-eval-ckpt.bin\", \"fnv1a\": \""));
-    CHECK(file_has("build/test-eval-ppo.json", "\"policy\": \"ppo\""));
+    CHECK(file_contains("build/test-eval-ppo.json", "\"checkpoint\": {\"path\": \"build/test-eval-ckpt.bin\", \"fnv1a\": \""));
+    CHECK(file_contains("build/test-eval-ppo.json", "\"policy\": \"ppo\""));
     char keys_ppo[8192], keys_random[8192];
     summary_keys("build/test-eval-ppo.json", keys_ppo, sizeof keys_ppo);
     summary_keys("build/test-eval-random.json", keys_random, sizeof keys_random);

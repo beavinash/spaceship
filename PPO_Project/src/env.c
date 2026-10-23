@@ -421,9 +421,6 @@ void env_observe(const Env *env, int ship, float *obs) {
     obs[4] = (float)self->ammo / SHIP_AMMO;
     obs[5] = (float)self->alive;
     obs[6] = unit(1.0f - (float)env->tick / (float)env->max_ticks);
-    int would_hit = 0;
-    env_shot_quality(env, ship, &would_hit);
-    obs[7] = (float)would_hit;
 
     for (int j = 1; j < NUM_SHIPS; j++) {
         const Ship *ally = &env->ships[(ship + j) % NUM_SHIPS];
@@ -442,10 +439,16 @@ void env_observe(const Env *env, int ship, float *obs) {
     float dist[MAX_ENEMIES > MAX_MISSILES ? MAX_ENEMIES : MAX_MISSILES];
     int idx[OBS_ENEMY_SLOTS > OBS_MISSILE_SLOTS ? OBS_ENEMY_SLOTS : OBS_MISSILE_SLOTS];
 
+    float offset[MAX_ENEMIES];
+    int would_hit = 0;
     for (int k = 0; k < env->n_enemies; k++) {
         const Enemy *e = &env->enemies[k];
+        int hit;
         dist[k] = centre_distance(self->x, self->y, SHIP_RADIUS, e->x, e->y, e->radius);
+        offset[k] = env_fire_solution(env, ship, k, &hit);
+        would_hit |= hit;
     }
+    obs[7] = (float)would_hit;
     int ne = nearest(dist, env->n_enemies, OBS_ENEMY_SLOTS, idx);
     for (int s = 0; s < ne; s++) {
         const Enemy *e = &env->enemies[idx[s]];
@@ -459,7 +462,7 @@ void env_observe(const Env *env, int ship, float *obs) {
         f[6] = (float)e->dead;
         f[7 + e->type] = 1.0f;
         f[10] = e->attack_cd_left <= 0 ? 1.0f : 0.0f;
-        f[11] = shot_quality(env_fire_solution(env, ship, idx[s], NULL));
+        f[11] = shot_quality(offset[idx[s]]);
     }
 
     for (int m = 0; m < env->n_missiles; m++) {

@@ -105,10 +105,15 @@ static int save_snapshot(Trainer *tr, const char *path, long long update) {
     return rc;
 }
 
+/* Columns ep_return_mean .. ep_seconds in METRICS_HEADER, written by the fprintf below. */
+#define EPISODE_COLUMNS 16
+
 static void write_episode_columns(FILE *f, const Trainer *tr) {
     int n = tr->episodes < EPISODE_WINDOW ? (int)tr->episodes : EPISODE_WINDOW;
     if (n == 0) {
-        fputs(",,,,,,,,,,,,,,,,", f); /* the 16 episode columns stay empty */
+        for (int c = 0; c < EPISODE_COLUMNS; c++) {
+            fputc(',', f); /* empty until an episode finishes */
+        }
         return;
     }
     EpisodeRecord sum = {0};
