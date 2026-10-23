@@ -55,3 +55,37 @@ void test_env_movement_matches_upstream_control(void) {
     CHECK_NEAR(env.ships[0].x, 0.0f, 0.0);
     CHECK_NEAR(env.ships[0].y, 950.0f, 0.0);
 }
+
+static void hold(Env *env, ShipAction a0, ShipAction a1, ShipAction a2, int ticks) {
+    ShipAction a[NUM_SHIPS] = {a0, a1, a2};
+    for (int t = 0; t < ticks; t++) {
+        env_tick(env, a);
+    }
+}
+
+static const ShipAction IDLE = {H_STAY, V_STAY, 0};
+static const ShipAction FIRE = {H_STAY, V_STAY, 1};
+
+void test_env_weapon_cooldown_is_30_ticks(void) {
+    Env env;
+    quiet_env(&env);
+    hold(&env, FIRE, IDLE, IDLE, 90);
+    CHECK(env.n_missiles == 3);
+    CHECK(env.stats.shots[0] == 3);
+    CHECK(env.stats.shots[1] == 0);
+    for (int m = 0; m < env.n_missiles; m++) {
+        CHECK(env.missiles[m].owner == 0);
+        CHECK_NEAR(env.missiles[m].x, 400.0f, 0.0);
+    }
+    CHECK(env.ships[0].weapon_cd == 1);
+
+    quiet_env(&env);
+    hold(&env, FIRE, IDLE, IDLE, 1);
+    CHECK(env.n_missiles == 1);
+    CHECK_NEAR(env.missiles[0].y, 700.0f, 0.0);
+    CHECK_NEAR(env.missiles[0].vy, 30.0f, 0.0);
+    hold(&env, FIRE, IDLE, IDLE, 29);
+    CHECK(env.n_missiles == 1);
+    hold(&env, FIRE, IDLE, IDLE, 1);
+    CHECK(env.n_missiles == 2);
+}

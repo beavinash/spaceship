@@ -47,10 +47,39 @@ static void move_ship(Ship *s, ShipAction a) {
     s->y = clampf(s->y + dy * TICK_DT, 0.0f, ARENA_SIZE - 2.0f * SHIP_RADIUS);
 }
 
+/* Upstream ShootMissile: launched from the ship's top-left corner with 30 px/s upward speed. */
+static void fire_missile(Env *env, int owner) {
+    Ship *s = &env->ships[owner];
+    if (env->n_missiles >= MAX_MISSILES) {
+        return;
+    }
+    Missile *m = &env->missiles[env->n_missiles++];
+    m->x = s->x;
+    m->y = s->y;
+    m->vy = MISSILE_START_VY;
+    m->owner = owner;
+    m->id = env->next_missile_id++;
+    s->weapon_cd = WEAPON_COOLDOWN_TICKS;
+    env->events[owner].shots++;
+    env->stats.shots[owner]++;
+}
+
+/* Upstream Control_Spaceship: move, count down the weapon, then fire if ready. */
+static void control_ship(Env *env, int i, ShipAction a) {
+    Ship *s = &env->ships[i];
+    move_ship(s, a);
+    if (s->weapon_cd > 0) {
+        s->weapon_cd--;
+    }
+    if (a.fire && s->weapon_cd <= 0) {
+        fire_missile(env, i);
+    }
+}
+
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     for (int i = 0; i < NUM_SHIPS; i++) {
         if (env->ships[i].alive) {
-            move_ship(&env->ships[i], actions[i]);
+            control_ship(env, i, actions[i]);
         }
     }
     env->tick++;
