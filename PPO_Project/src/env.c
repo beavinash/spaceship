@@ -352,3 +352,89 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
         rewards[i] = r;
     }
 }
+
+static float unit(float v) {
+    return clampf(v, -1.0f, 1.0f);
+}
+
+/* Indices of the k nearest of n distances, nearest first, lower index winning ties. */
+static int nearest(const float *dist, int n, int k, int *out) {
+    unsigned char used[MAX_ENEMIES > MAX_MISSILES ? MAX_ENEMIES : MAX_MISSILES] = {0};
+    int count = n < k ? n : k;
+    for (int s = 0; s < count; s++) {
+        int best = -1;
+        for (int j = 0; j < n; j++) {
+            if (!used[j] && (best < 0 || dist[j] < dist[best])) {
+                best = j;
+            }
+        }
+        used[best] = 1;
+        out[s] = best;
+    }
+    return count;
+}
+
+void env_observe(const Env *env, int ship, float *obs) {
+    memset(obs, 0, OBS_DIM * sizeof *obs);
+    const Ship *self = &env->ships[ship];
+    float cx = self->x + SHIP_RADIUS;
+    float cy = self->y + SHIP_RADIUS;
+
+    obs[0] = cx / ARENA_SIZE;
+    obs[1] = cy / ARENA_SIZE;
+    obs[2] = self->health / SHIP_HEALTH;
+    obs[3] = unit((float)self->weapon_cd / WEAPON_COOLDOWN_TICKS);
+    obs[4] = (float)self->ammo / SHIP_AMMO;
+    obs[5] = (float)self->alive;
+    obs[6] = unit(1.0f - (float)env->tick / (float)env->max_ticks);
+
+    for (int j = 1; j < NUM_SHIPS; j++) {
+        const Ship *ally = &env->ships[(ship + j) % NUM_SHIPS];
+        float *a = obs + OBS_ALLY_OFFSET + (j - 1) * OBS_ALLY;
+        if (!ally->alive) {
+            continue;
+        }
+        a[0] = 1.0f;
+        a[1] = unit((ally->x + SHIP_RADIUS - cx) / ARENA_SIZE);
+        a[2] = unit((ally->y + SHIP_RADIUS - cy) / ARENA_SIZE);
+        a[3] = ally->health / SHIP_HEALTH;
+        a[4] = unit((float)ally->weapon_cd / WEAPON_COOLDOWN_TICKS);
+        a[5] = (float)ally->ammo / SHIP_AMMO;
+    }
+
+    float dist[MAX_ENEMIES > MAX_MISSILES ? MAX_ENEMIES : MAX_MISSILES];
+    int idx[OBS_ENEMY_SLOTS > OBS_MISSILE_SLOTS ? OBS_ENEMY_SLOTS : OBS_MISSILE_SLOTS];
+
+    for (int k = 0; k < env->n_enemies; k++) {
+        const Enemy *e = &env->enemies[k];
+        dist[k] = centre_distance(self->x, self->y, SHIP_RADIUS, e->x, e->y, e->radius);
+    }
+    int ne = nearest(dist, env->n_enemies, OBS_ENEMY_SLOTS, idx);
+    for (int s = 0; s < ne; s++) {
+        const Enemy *e = &env->enemies[idx[s]];
+        float *f = obs + OBS_ENEMY_OFFSET + s * OBS_ENEMY;
+        f[0] = 1.0f;
+        f[1] = unit((e->x + e->radius - cx) / ARENA_SIZE);
+        f[2] = unit((e->y + e->radius - cy) / ARENA_SIZE);
+        f[3] = unit(e->vx / 800.0f);
+        f[4] = unit(e->vy / 1000.0f);
+        f[5] = clampf(e->health / ENEMY_TYPES[2].health, 0.0f, 1.0f);
+        f[6] = (float)e->dead;
+        f[7 + e->type] = 1.0f;
+        f[10] = e->attack_cd_left <= 0 ? 1.0f : 0.0f;
+    }
+
+    for (int m = 0; m < env->n_missiles; m++) {
+        const Missile *mi = &env->missiles[m];
+        dist[m] = centre_distance(self->x, self->y, SHIP_RADIUS, mi->x, mi->y, MISSILE_RADIUS);
+    }
+    int nm = nearest(dist, env->n_missiles, OBS_MISSILE_SLOTS, idx);
+    for (int s = 0; s < nm; s++) {
+        const Missile *mi = &env->missiles[idx[s]];
+        float *f = obs + OBS_MISSILE_OFFSET + s * OBS_MISSILE;
+        f[0] = 1.0f;
+        f[1] = unit((mi->x + MISSILE_RADIUS - cx) / ARENA_SIZE);
+        f[2] = unit((mi->y + MISSILE_RADIUS - cy) / ARENA_SIZE);
+        f[3] = mi->owner == ship ? 1.0f : 0.0f;
+    }
+}

@@ -238,7 +238,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=rewards` → exit 0; `PASS env_rewards_follow_configured_coefficients`
   - regression: `make -C PPO_Project test` → exit 0; `17 tests, 185 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T016 | P0 | depends: T014 | AC-006 | Encode ego-centric observations with nearest-first entity slots; done when: tests check length 139, [−1, 1] bounds, ordering, zero padding.
+- [x] T016 | P0 | depends: T014 | AC-006 | Encode ego-centric observations with nearest-first entity slots; done when: tests check length 139, [−1, 1] bounds, ordering, zero padding.
+  - red: `make -C PPO_Project test T=observation` → exit 2; `tests/test_env.c:455:11: error: use of undeclared identifier 'OBS_DIM'`
+  - green: `make -C PPO_Project test T=observation` → exit 0; `PASS env_observation_layout_and_bounds`
+  - regression: `make -C PPO_Project test` → exit 0; `18 tests, 219 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T017 | P0 | depends: T016 | AC-003 | Verify deterministic replay of seeded episodes; done when: identical seeds plus actions give identical state hashes over 10,000 ticks.
 - [ ] T018 | P0 | depends: T001 | AC-007 | Implement batched dense-layer forward/backward passes; done when: finite-difference gradient checks pass.
 - [ ] T019 | P0 | depends: T018 | AC-007 | Build orthogonally initialized tanh actor/critic MLPs; done when: tests check output shapes, init gains, deterministic forward passes.

@@ -52,6 +52,18 @@
 #define EPISODE_SECONDS 120
 #define EPISODE_TICKS (EPISODE_SECONDS * TICK_HZ)
 
+/* Observation layout (section 3.2): self, two allies, 8 nearest enemies/explosions, 8 nearest missiles. */
+#define OBS_SELF 7
+#define OBS_ALLY 6
+#define OBS_ENEMY 11
+#define OBS_MISSILE 4
+#define OBS_ENEMY_SLOTS 8
+#define OBS_MISSILE_SLOTS 8
+#define OBS_ALLY_OFFSET OBS_SELF
+#define OBS_ENEMY_OFFSET (OBS_ALLY_OFFSET + (NUM_SHIPS - 1) * OBS_ALLY)
+#define OBS_MISSILE_OFFSET (OBS_ENEMY_OFFSET + OBS_ENEMY_SLOTS * OBS_ENEMY)
+#define OBS_DIM (OBS_MISSILE_OFFSET + OBS_MISSILE_SLOTS * OBS_MISSILE)
+
 typedef struct {
     float health;
     float damage;
@@ -185,6 +197,12 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]);
  * A finished episode does not advance until env_reset.
  */
 void env_step(Env *env, const ShipAction actions[NUM_SHIPS]);
+
+/*
+ * Ego-centric observation for one ship, OBS_DIM floats in [-1, 1]. Relative values use centres;
+ * entity slots hold the nearest entities first and are zero-padded. Reads state only.
+ */
+void env_observe(const Env *env, int ship, float *obs);
 
 /* Section 3.2 defaults: score + survival with a per-shot cost; ally sharing off. */
 RewardConfig reward_config_default(void);

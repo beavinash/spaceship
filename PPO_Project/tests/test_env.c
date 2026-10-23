@@ -450,3 +450,91 @@ void test_env_rewards_follow_configured_coefficients(void) {
     CHECK_NEAR(env.stats.episode_return[0], 0.87 + 1.12, 1e-5);
     CHECK_NEAR(env.stats.parts[1].death, -4.0, 1e-6);
 }
+
+void test_env_observation_layout_and_bounds(void) {
+    CHECK(OBS_DIM == 139);
+    CHECK(OBS_ALLY_OFFSET == 7 && OBS_ENEMY_OFFSET == 19 && OBS_MISSILE_OFFSET == 107);
+    Env env;
+    quiet_env(&env);
+    float o[OBS_DIM];
+    env_observe(&env, 0, o);
+    CHECK_NEAR(o[0], 0.425, 1e-6); /* centre x 425 */
+    CHECK_NEAR(o[1], 0.725, 1e-6);
+    CHECK_NEAR(o[2], 1.0, 0.0);
+    CHECK_NEAR(o[3], 0.0, 0.0);
+    CHECK_NEAR(o[4], 1.0, 0.0);
+    CHECK_NEAR(o[5], 1.0, 0.0);
+    CHECK_NEAR(o[6], 1.0, 0.0);
+    /* Allies in order ship 1, ship 2. */
+    CHECK_NEAR(o[OBS_ALLY_OFFSET + 0], 1.0, 0.0);
+    CHECK_NEAR(o[OBS_ALLY_OFFSET + 1], 0.05, 1e-6);
+    CHECK_NEAR(o[OBS_ALLY_OFFSET + 6 + 1], 0.10, 1e-6);
+    int empty = 1;
+    for (int k = OBS_ENEMY_OFFSET; k < OBS_DIM; k++) {
+        empty &= o[k] == 0.0f;
+    }
+    CHECK(empty);
+
+    env.ships[2].alive = 0;
+    env_add_enemy(&env, 2, 400.0f, 100.0f); /* 600 px above ship 0 */
+    env_add_enemy(&env, 1, 400.0f, 500.0f); /* 200 px above: nearest */
+    env_add_enemy(&env, 0, 700.0f, 700.0f); /* 300 px right */
+    env.enemies[1].attack_cd_left = 5;
+    place_missile(&env, 420.0f, 600.0f, 0);
+    env.ships[0].ammo = 40;
+    env_observe(&env, 0, o);
+    CHECK_NEAR(o[4], 0.4, 1e-6);
+    int a2 = OBS_ALLY_OFFSET + 6;
+    CHECK(o[a2] == 0.0f && o[a2 + 1] == 0.0f && o[a2 + 5] == 0.0f); /* a dead ally is all zeros */
+    const float *e0 = o + OBS_ENEMY_OFFSET;
+    CHECK_NEAR(e0[0], 1.0, 0.0);
+    CHECK_NEAR(e0[1], 0.0, 1e-6);
+    CHECK_NEAR(e0[2], -0.2, 1e-6);
+    CHECK_NEAR(e0[3], 0.25, 1e-6);   /* vx 200 / 800 */
+    CHECK_NEAR(e0[4], 0.01, 1e-6);   /* vy 10 / 1000 */
+    CHECK_NEAR(e0[5], 0.75, 1e-6);   /* health 30 / 40 */
+    CHECK(e0[6] == 0.0f);            /* not an explosion */
+    CHECK(e0[7] == 0.0f && e0[8] == 1.0f && e0[9] == 0.0f);
+    CHECK(e0[10] == 0.0f);           /* on cooldown */
+    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 11 + 1], 0.3, 1e-6);   /* second: 300 px right */
+    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 22 + 2], -0.6, 1e-6);  /* third: 600 px up */
+    CHECK(o[OBS_ENEMY_OFFSET + 33] == 0.0f);               /* fourth slot empty */
+    const float *m0 = o + OBS_MISSILE_OFFSET;
+    CHECK(m0[0] == 1.0f && m0[3] == 1.0f);
+    CHECK_NEAR(m0[1], (430.0 - 425.0) / 1000.0, 1e-6);
+    env_observe(&env, 1, o);
+    CHECK(o[OBS_MISSILE_OFFSET + 3] == 0.0f); /* not ship 1's missile */
+
+    quiet_env(&env);
+    for (int k = 0; k < 10; k++) {
+        env_add_enemy(&env, 0, 400.0f, 600.0f - 40.0f * (float)k);
+    }
+    env_observe(&env, 0, o);
+    CHECK(o[OBS_ENEMY_OFFSET + 7 * 11] == 1.0f);
+    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 7 * 11 + 2], -(100.0 + 7 * 40.0) / 1000.0, 1e-6);
+
+    /* Random play: every value stays in [-1, 1] and observing never consumes random numbers. */
+    env_reset(&env, 4242u);
+    Pcg32 policy;
+    pcg32_seed(&policy, 9u, 9u);
+    int bounded = 1;
+    int rng_untouched = 1;
+    for (int d = 0; d < 1500 && !env.terminated && !env.truncated; d++) {
+        ShipAction a[NUM_SHIPS];
+        for (int i = 0; i < NUM_SHIPS; i++) {
+            a[i] = (ShipAction){(int)pcg32_bounded(&policy, 3), (int)pcg32_bounded(&policy, 3),
+                                (int)pcg32_bounded(&policy, 2)};
+        }
+        env_step(&env, a);
+        for (int i = 0; i < NUM_SHIPS; i++) {
+            Pcg32 before = env.rng;
+            env_observe(&env, i, o);
+            rng_untouched &= before.state == env.rng.state;
+            for (int k = 0; k < OBS_DIM; k++) {
+                bounded &= o[k] >= -1.0f && o[k] <= 1.0f;
+            }
+        }
+    }
+    CHECK(bounded);
+    CHECK(rng_untouched);
+}
