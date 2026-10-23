@@ -278,7 +278,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=rollout_masks` → exit 0; `PASS ppo_rollout_masks_steps_after_death`
   - regression: `make -C PPO_Project test` → exit 0; `25 tests, 299 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T024 | P0 | depends: T023 | AC-009 | Compute GAE with termination, truncation bootstrap, masks; done when: outputs match a hand-computed fixture.
+- [x] T024 | P0 | depends: T023 | AC-009 | Compute GAE with termination, truncation bootstrap, masks; done when: outputs match a hand-computed fixture.
+  - red: `make -C PPO_Project test T=gae` → exit 2; `tests/test_ppo.c:61:5: error: call to undeclared function 'rollout_gae'`
+  - green: `make -C PPO_Project test T=gae` → exit 0; `PASS ppo_gae_handles_termination_truncation_masks`
+  - regression: `make -C PPO_Project test` → exit 0; `26 tests, 314 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T025 | P0 | depends: T020 | AC-009 | Compute clipped PPO loss gradients for policy, value, entropy terms; done when: finite-difference checks pass with the expected clip fraction.
 - [ ] T026 | P0 | depends: T024, T025, T021 | AC-009 | Run shuffled minibatch epochs with per-minibatch advantage normalization; done when: each active sample is visited exactly once per epoch.
 - [ ] T027 | P0 | depends: T026 | AC-010 | Train PPO on a toy target-reaching environment; done when: seed 1 exceeds the documented return threshold within the documented update budget.

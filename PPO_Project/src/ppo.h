@@ -44,4 +44,11 @@ void rollout_outcome(Rollout *r, int t, int n, float reward, int done, float boo
 
 int rollout_active_count(const Rollout *r);
 
+/*
+ * GAE(lambda) advantages and returns. last_values[n] is V of each env's observation after
+ * the final step, used when a trajectory is still running at the rollout edge. Endings use
+ * bootstrap (V(final obs) for the time limit, 0 for death or defeat); masked samples get 0.
+ */
+void rollout_gae(Rollout *r, const float *last_values, float gamma, float lambda);
+
 #endif

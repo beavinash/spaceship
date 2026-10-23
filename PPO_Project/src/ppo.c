@@ -80,3 +80,29 @@ int rollout_active_count(const Rollout *r) {
     }
     return count;
 }
+
+void rollout_gae(Rollout *r, const float *last_values, float gamma, float lambda) {
+    for (int n = 0; n < r->envs; n++) {
+        float carry = 0.0f;
+        for (int t = r->steps - 1; t >= 0; t--) {
+            int i = rollout_index(r, t, n);
+            if (!r->active[i]) {
+                r->advantages[i] = 0.0f;
+                r->returns[i] = 0.0f;
+                carry = 0.0f;
+                continue;
+            }
+            float next;
+            if (r->dones[i]) {
+                next = r->bootstrap[i];
+                carry = 0.0f;
+            } else {
+                next = t == r->steps - 1 ? last_values[n] : r->values[rollout_index(r, t + 1, n)];
+            }
+            float delta = r->rewards[i] + gamma * next - r->values[i];
+            carry = delta + gamma * lambda * carry;
+            r->advantages[i] = carry;
+            r->returns[i] = carry + r->values[i];
+        }
+    }
+}
