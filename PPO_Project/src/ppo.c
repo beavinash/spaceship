@@ -180,7 +180,7 @@ void agent_free(Agent *ag) {
 PpoConfig ppo_config_default(void) {
     PpoConfig cfg = {
         .gamma = 0.99f,
-        .lambda = 0.99f, /* 0.95 left ~3% of the credit for a hit ~1-2 s after the shot */
+        .lambda = 0.99f, /* 0.95 left ~5% of the credit for a hit ~50 decisions (1.6 s) after the shot */
         .clip = 0.2f,
         .vf_coef = 0.5f,
         .ent_coef = 0.01f,

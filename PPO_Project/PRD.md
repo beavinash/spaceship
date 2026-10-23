@@ -117,7 +117,7 @@ Rewards are not clipped. Each component is accumulated and logged per episode. T
 
 - One actor and one critic per ship, 3 ships → 6 MLPs. Each MLP is 139 → 128 → 128 tanh; the actor ends in 8 logits (3 + 3 + 2) and the critic in 1 value. Orthogonal init uses gain √2 for hidden layers, 0.01 for the policy output, and 1 for the value output.
 - The 120 s limit is a true ending for learning (amendment 4): the remaining time is observed, and evaluation scores exactly 120 s. Training therefore neither bootstraps past it nor keeps a shaping potential there (Pardo et al., 2018, "Time Limits in Reinforcement Learning").
-- PPO defaults: 16 arenas × 128 decisions per rollout (2,048 samples per ship network), γ 0.99, GAE λ 0.99 (0.95 attenuated the ~1–2 s missile-flight credit to ~3%), clip 0.2, 4 epochs, 4 minibatches, Adam lr 3e-4 annealed linearly, ε 1e-5, value coefficient 0.5, entropy coefficient 0.01, global grad-norm clip 0.5, per-minibatch advantage normalization.
+- PPO defaults: 16 arenas × 128 decisions per rollout (2,048 samples per ship network), γ 0.99, GAE λ 0.99 (0.95 left only ~5% of the credit for a hit ~50 decisions, 1.6 s, after its shot), clip 0.2, 4 epochs, 4 minibatches, Adam lr 3e-4 annealed linearly, ε 1e-5, value coefficient 0.5, entropy coefficient 0.01, global grad-norm clip 0.5, per-minibatch advantage normalization.
 - No ending bootstraps for the game: death, team defeat, and the 120 s limit are all terminal. The learner keeps time-limit bootstrapping (used by the toy task, whose observation has no clock).
 - Seeds: every arena and each action sampler use their own seeded PCG32 stream, so a run is reproducible on the same build and platform.
 - Training stops at `--total-decisions` or `--max-seconds`, whichever comes first. The run directory holds `manifest.json` (git commit, config, seed), `metrics.csv` (one row per update), and checkpoints.
@@ -462,7 +462,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=reward_components` → exit 0; `PASS eval_reports_reward_components` (nine components per seed sum to return_mean within 1e-4)
   - regression: `make -C PPO_Project test` → exit 0; `51 tests, 618 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T058 | P1 | depends: T059 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
+- [x] T058 | P1 | depends: T059 | AC-028 | Write REWARD.md with worked calculations for the three ships; done when: its numbers reproduce from the cited tests or commands.
+  - red: unavailable (documentation task; the two worked-example tests pin behaviour that already existed rather than drive new code)
+  - green: `make test T=reward` → exit 0; `4 tests, 51 checks, 0 failed checks, 0 failed tests`; every command in REWARD.md section 12 ran (exit 0), and all 42 numbers in section 9 match fresh `ppo eval` reports
+  - regression: `make test` → exit 0; `53 tests, 636 checks, 0 failed checks, 0 failed tests`; `make sanitize` → exit 0 with `stress: 1000000 decisions, 279 episodes, peak 16/64 enemies, 28/64 missiles, 0 violations`; smoke and viewer-check exit 0
+  - scans: `make analyze` → `analyze: 0 findings`; figures marked (audit) in REWARD.md come from a one-off probe not kept in the repo
 - [x] T043 | P1 | depends: T055, T035 | AC-019 | Evaluate the kept checkpoint once on test seeds against baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
   - red: before this task, `ppo eval --split test` without `--final` → exit 1 (`eval: the test split is held out; pass --final for the one final evaluation`); no test-split result existed
   - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final` → `team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`; random `103.68 +/- 4.65, deaths 1.40`; legacy `103.78 +/- 4.42, deaths 0.65`; judged: `MQ-1 PASS`, `MQ-2 PASS`, `MQ-3 PASS` (edge 0.033), `MQ-4 PASS` (accuracy 0.288 vs 0.256, aimed 0.243 vs 0.229); single training seed, so the 2-of-3-seeds clause is not assessable
