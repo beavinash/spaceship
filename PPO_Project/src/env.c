@@ -438,3 +438,49 @@ void env_observe(const Env *env, int ship, float *obs) {
         f[3] = mi->owner == ship ? 1.0f : 0.0f;
     }
 }
+
+static uint64_t fnv_bytes(uint64_t h, const void *data, size_t n) {
+    const unsigned char *p = data;
+    for (size_t i = 0; i < n; i++) {
+        h ^= p[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+static uint64_t fnv_float(uint64_t h, float v) {
+    uint32_t bits;
+    memcpy(&bits, &v, sizeof bits);
+    return fnv_bytes(h, &bits, sizeof bits);
+}
+
+static uint64_t fnv_int(uint64_t h, int64_t v) {
+    return fnv_bytes(h, &v, sizeof v);
+}
+
+uint64_t env_hash(const Env *env) {
+    uint64_t h = 14695981039346656037ULL;
+    h = fnv_int(h, (int64_t)env->rng.state);
+    h = fnv_int(h, env->tick);
+    h = fnv_int(h, env->spawn_timer);
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        const Ship *s = &env->ships[i];
+        h = fnv_float(fnv_float(fnv_float(h, s->x), s->y), s->health);
+        h = fnv_int(fnv_int(fnv_int(h, s->alive), s->ammo), s->weapon_cd);
+        h = fnv_int(h, env->stats.score[i]);
+    }
+    h = fnv_int(h, env->n_enemies);
+    for (int k = 0; k < env->n_enemies; k++) {
+        const Enemy *e = &env->enemies[k];
+        h = fnv_float(fnv_float(fnv_float(fnv_float(h, e->x), e->y), e->vx), e->vy);
+        h = fnv_float(fnv_float(h, e->health), e->radius);
+        h = fnv_int(fnv_int(fnv_int(fnv_int(h, e->type), e->dead), e->attack_cd_left), e->id);
+    }
+    h = fnv_int(h, env->n_missiles);
+    for (int m = 0; m < env->n_missiles; m++) {
+        const Missile *mi = &env->missiles[m];
+        h = fnv_float(fnv_float(fnv_float(h, mi->x), mi->y), mi->vy);
+        h = fnv_int(fnv_int(h, mi->owner), mi->id);
+    }
+    return h;
+}

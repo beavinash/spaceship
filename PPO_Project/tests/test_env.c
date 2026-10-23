@@ -538,3 +538,44 @@ void test_env_observation_layout_and_bounds(void) {
     CHECK(bounded);
     CHECK(rng_untouched);
 }
+
+static void random_actions(Pcg32 *policy, ShipAction a[NUM_SHIPS]) {
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        a[i] = (ShipAction){(int)pcg32_bounded(policy, 3), (int)pcg32_bounded(policy, 3),
+                            (int)pcg32_bounded(policy, 2)};
+    }
+}
+
+void test_env_replay_is_deterministic(void) {
+    Env a, b, c;
+    env_reset(&a, 2024u);
+    env_reset(&b, 2024u);
+    env_reset(&c, 2025u);
+    Pcg32 pa, pb, pc;
+    pcg32_seed(&pa, 1u, 2u);
+    pcg32_seed(&pb, 1u, 2u);
+    pcg32_seed(&pc, 1u, 2u);
+    CHECK(env_hash(&a) == env_hash(&b));
+    int same = 1;
+    int diverged = 0;
+    for (int t = 0; t < 10000; t++) {
+        ShipAction xa[NUM_SHIPS], xb[NUM_SHIPS], xc[NUM_SHIPS];
+        random_actions(&pa, xa);
+        random_actions(&pb, xb);
+        random_actions(&pc, xc);
+        env_tick(&a, xa);
+        env_tick(&b, xb);
+        env_tick(&c, xc);
+        same &= env_hash(&a) == env_hash(&b);
+        diverged |= env_hash(&a) != env_hash(&c);
+    }
+    CHECK(same);
+    CHECK(diverged);
+    CHECK(a.stats.spawned > 100);
+
+    /* The hash sees gameplay state, not just the clock. */
+    env_reset(&a, 7u);
+    env_reset(&b, 7u);
+    b.ships[1].x += 1.0f;
+    CHECK(env_hash(&a) != env_hash(&b));
+}

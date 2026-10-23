@@ -204,6 +204,9 @@ void env_step(Env *env, const ShipAction actions[NUM_SHIPS]);
  */
 void env_observe(const Env *env, int ship, float *obs);
 
+/* FNV-1a over gameplay state and RNG position, for replay and determinism checks. */
+uint64_t env_hash(const Env *env);
+
 /* Section 3.2 defaults: score + survival with a per-shot cost; ally sharing off. */
 RewardConfig reward_config_default(void);
 

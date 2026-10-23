@@ -243,7 +243,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=observation` → exit 0; `PASS env_observation_layout_and_bounds`
   - regression: `make -C PPO_Project test` → exit 0; `18 tests, 219 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T017 | P0 | depends: T016 | AC-003 | Verify deterministic replay of seeded episodes; done when: identical seeds plus actions give identical state hashes over 10,000 ticks.
+- [x] T017 | P0 | depends: T016 | AC-003 | Verify deterministic replay of seeded episodes; done when: identical seeds plus actions give identical state hashes over 10,000 ticks.
+  - red: `make -C PPO_Project test T=replay` → exit 2; `tests/test_env.c:558:11: error: call to undeclared function 'env_hash'`
+  - green: `make -C PPO_Project test T=replay` → exit 0; `PASS env_replay_is_deterministic`
+  - regression: `make -C PPO_Project test` → exit 0; `19 tests, 224 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T018 | P0 | depends: T001 | AC-007 | Implement batched dense-layer forward/backward passes; done when: finite-difference gradient checks pass.
 - [ ] T019 | P0 | depends: T018 | AC-007 | Build orthogonally initialized tanh actor/critic MLPs; done when: tests check output shapes, init gains, deterministic forward passes.
 - [ ] T020 | P0 | depends: T019 | AC-007 | Compute factorized 3×3×2 categorical log-probabilities with entropy; done when: hand-computed fixtures plus gradient checks pass.
