@@ -168,7 +168,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=env_reset` → exit 0; `PASS env_reset_matches_upstream_ships`
   - regression: `make -C PPO_Project test` → exit 0; `3 tests, 40 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T003 | P0 | depends: T002 | AC-002 | Apply factorized movement actions with upstream diagonal normalization plus clamping; done when: one-tick displacement tests match upstream `Control_Spaceship` arithmetic.
+- [x] T003 | P0 | depends: T002 | AC-002 | Apply factorized movement actions with upstream diagonal normalization plus clamping; done when: one-tick displacement tests match upstream `Control_Spaceship` arithmetic.
+  - red: `make -C PPO_Project test T=movement` → exit 2; `tests/test_env.c:39:5: error: call to undeclared function 'env_tick'`
+  - green: `make -C PPO_Project test T=movement` → exit 0; `PASS env_movement_matches_upstream_control`
+  - regression: `make -C PPO_Project test` → exit 0; `4 tests, 49 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T004 | P0 | depends: T003 | AC-002 | Fire missiles through a 30-tick weapon cooldown; done when: holding fire for 90 ticks spawns exactly three missiles.
 - [ ] T044 | P0 | depends: T004 | AC-002 | Limit each ship to 100 missiles per episode without refill; done when: holding fire for 3,300 ticks spawns exactly 100 missiles.
 - [ ] T005 | P0 | depends: T044 | AC-002 | Advance missiles along the upstream accelerating upward path; done when: tick-by-tick y matches a closed-form fixture until removal above y = −10.

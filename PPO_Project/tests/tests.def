@@ -1,3 +1,4 @@
 TEST(pcg32_reference_sequence)
 TEST(pcg32_bounded_and_unit_float)
 TEST(env_reset_matches_upstream_ships)
+TEST(env_movement_matches_upstream_control)

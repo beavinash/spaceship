@@ -171,4 +171,7 @@ typedef struct {
 
 void env_reset(Env *env, uint64_t seed);
 
+/* Advance one physics tick, in upstream frame order, with each ship holding its action. */
+void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]);
+
 #endif
