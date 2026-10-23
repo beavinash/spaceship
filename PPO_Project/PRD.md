@@ -407,7 +407,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=defaults_to_sampled` → exit 0; `PASS eval_defaults_to_sampled_actions`; CLI: default report `"sample": true,`, `--greedy` report `"sample": false,`, manifest `"gamma": 0.99, "lambda": 0.99`
   - regression: `make -C PPO_Project test` → exit 0; `46 tests, 582 checks, 0 failed checks, 0 failed tests` (T026's λ assertion moved to 0.99)
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
+- [x] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
+  - red: before the fixes, the 10-minute control run's best dev checkpoint scored `dev team score 69.00` with ships at the walls 86–97% of the time
+  - green: `ppo select --run-dir runs/pilot2` (seed 101, 600 s, 3,796,992 decisions) → `selected runs/pilot2/final.bin (update 1854): dev team score 119.30, deaths 0.00`; vs random/legacy: accuracy 0.283 / 0.244 / 0.262, aimed share 0.243 / 0.231 / 0.216, edge share 0.028 / 0.113 / 0.047; `MQ-1 FAIL` (+18.6 over random vs a 20.9 bar), `MQ-2 PASS`, `MQ-3 PASS`, `MQ-4 PASS`
+  - regression: `make -C PPO_Project test` → exit 0; `47 tests, 589 checks, 0 failed checks, 0 failed tests`
+  - scans: no code changed in this task; dependency audit: unavailable (no third-party code in the core)
 - [x] T054 | P1 | depends: T038, T036 | AC-015 | Let the viewer follow a run's newest checkpoint; done when: a test finds the newest checkpoint while a screenshot run shows its update.
   - red: `make -C PPO_Project test T=latest_checkpoint` → exit 2; `tests/test_select.c:74:11: error: call to undeclared function 'latest_checkpoint'`
   - green: `make -C PPO_Project test T=latest_checkpoint` → exit 0; `PASS select_finds_latest_checkpoint`; `build/viewer --run-dir runs/pilot2 --frames 60 --screenshot build/viewer-follow.png` → exit 0 with `hud: Time 2.0 / 120 s   seed 1000   ppo update 1800 (sampled, following run)`
