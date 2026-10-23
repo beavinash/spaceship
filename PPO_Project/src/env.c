@@ -77,11 +77,40 @@ static void control_ship(Env *env, int i, ShipAction a) {
     }
 }
 
+static void remove_missile(Env *env, int idx) {
+    memmove(&env->missiles[idx], &env->missiles[idx + 1],
+            (size_t)(env->n_missiles - idx - 1) * sizeof env->missiles[0]);
+    env->n_missiles--;
+}
+
+/* Upstream Iterate_Projectiles(Detect_Projectile_Collisions): spent or off-screen missiles leave the list. */
+static void resolve_missiles(Env *env) {
+    int m = 0;
+    while (m < env->n_missiles) {
+        if (env->missiles[m].y < -MISSILE_RADIUS) {
+            remove_missile(env, m);
+            continue;
+        }
+        m++;
+    }
+}
+
+/* Upstream AccelerateStraightVPath: speed up, then move up. */
+static void move_missiles(Env *env) {
+    for (int m = 0; m < env->n_missiles; m++) {
+        Missile *mi = &env->missiles[m];
+        mi->vy += MISSILE_ACCEL * TICK_DT;
+        mi->y -= mi->vy * TICK_DT;
+    }
+}
+
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     for (int i = 0; i < NUM_SHIPS; i++) {
         if (env->ships[i].alive) {
             control_ship(env, i, actions[i]);
         }
     }
+    resolve_missiles(env);
+    move_missiles(env);
     env->tick++;
 }

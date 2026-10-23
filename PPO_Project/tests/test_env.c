@@ -82,8 +82,9 @@ void test_env_weapon_cooldown_is_30_ticks(void) {
     quiet_env(&env);
     hold(&env, FIRE, IDLE, IDLE, 1);
     CHECK(env.n_missiles == 1);
-    CHECK_NEAR(env.missiles[0].y, 700.0f, 0.0);
-    CHECK_NEAR(env.missiles[0].vy, 30.0f, 0.0);
+    /* Launched at y = 700 with 30 px/s, then moved once in the same tick (upstream frame order). */
+    CHECK_NEAR(env.missiles[0].vy, 30.0f + 300.0f / 120.0f, 1e-4);
+    CHECK_NEAR(env.missiles[0].y, 700.0f - (30.0f + 300.0f / 120.0f) / 120.0f, 1e-4);
     hold(&env, FIRE, IDLE, IDLE, 29);
     CHECK(env.n_missiles == 1);
     hold(&env, FIRE, IDLE, IDLE, 1);
@@ -102,4 +103,28 @@ void test_env_ammo_is_100_without_refill(void) {
     CHECK(env.ships[0].ammo == 0);
     CHECK(env.ships[1].ammo == 100);
     CHECK(env.ships[0].weapon_cd <= 0);
+}
+
+void test_env_missile_flight_matches_closed_form(void) {
+    Env env;
+    quiet_env(&env);
+    hold(&env, FIRE, IDLE, IDLE, 1);
+    const double dt = 1.0 / 120.0;
+    int n = 1;
+    int matched = 1;
+    double y = 700.0 - dt * (30.0 * n + 300.0 * dt * n * (n + 1) / 2.0);
+    while (y >= -10.0) {
+        matched &= env.n_missiles == 1 && fabs(env.missiles[0].y - y) < 1e-2;
+        hold(&env, IDLE, IDLE, IDLE, 1);
+        n++;
+        y = 700.0 - dt * (30.0 * n + 300.0 * dt * n * (n + 1) / 2.0);
+    }
+    CHECK(matched);
+    CHECK(n > 100 && n < 400);
+    /* The tick that carries it above y = -10 leaves it in flight; the next tick's hit pass removes it. */
+    CHECK(env.n_missiles == 1);
+    CHECK_NEAR(env.missiles[0].y, y, 1e-2);
+    CHECK_NEAR(env.missiles[0].vy, 30.0 + 300.0 * dt * n, 1e-2);
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.n_missiles == 0);
 }

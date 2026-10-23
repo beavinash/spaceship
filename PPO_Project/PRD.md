@@ -183,7 +183,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=ammo` → exit 0; `PASS env_ammo_is_100_without_refill`
   - regression: `make -C PPO_Project test` → exit 0; `6 tests, 68 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T005 | P0 | depends: T044 | AC-002 | Advance missiles along the upstream accelerating upward path; done when: tick-by-tick y matches a closed-form fixture until removal above y = −10.
+- [x] T005 | P0 | depends: T044 | AC-002 | Advance missiles along the upstream accelerating upward path; done when: tick-by-tick y matches a closed-form fixture until removal above y = −10.
+  - red: `make -C PPO_Project test T=missile_flight` → exit 2; `tests/test_env.c:125: CHECK_NEAR(env.missiles[0].y, y) failed: 700 vs -10.6875`
+  - green: `make -C PPO_Project test T=missile_flight` → exit 0; `PASS env_missile_flight_matches_closed_form`
+  - regression: `make -C PPO_Project test` → exit 0; `7 tests, 74 checks, 0 failed checks, 0 failed tests` (T004's launch assertion now checks the post-move state, as upstream moves missiles in the launch frame)
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T006 | P0 | depends: T002 | AC-002 | Spawn seeded enemies every 90 ticks with upstream per-type stats; done when: a test asserts spawn ticks, x within [0, 800], per-type stats.
 - [ ] T007 | P0 | depends: T006 | AC-002 | Move enemies with the upstream zigzag reversal rule; done when: a fixture reproduces the reversal tick for a known start x.
 - [ ] T008 | P0 | depends: T005, T007 | AC-002 | Apply missile damage to every overlapping live enemy; done when: tests show 10 damage per overlapped enemy with the missile removed.
