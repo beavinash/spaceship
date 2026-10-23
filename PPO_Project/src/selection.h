@@ -1,6 +1,7 @@
 #ifndef SELECTION_H
 #define SELECTION_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* A checkpoint scored on the development scenarios (sampled PPO, seeded per scenario). */
@@ -20,5 +21,8 @@ int select_best(const Candidate *c, int n);
  * Fills out[0..*n) in update order; returns the winner's index or -1.
  */
 int select_run(const char *run_dir, Candidate *out, int cap, int *n);
+
+/* Path and update of the newest checkpoint in run_dir (periodic or final.bin); -1 if there is none. */
+int latest_checkpoint(const char *run_dir, char *path, size_t size, uint32_t *update);
 
 #endif

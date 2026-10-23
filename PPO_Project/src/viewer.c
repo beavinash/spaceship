@@ -1,6 +1,8 @@
 /*
  * raylib viewer: watch three ships play one scenario with upstream's original artwork.
  * Keys: Space pause, F 1x/4x speed, R restart, N next scenario, Esc quit.
+ * --run-dir DIR follows a training run: each new episode plays the run's newest checkpoint,
+ * and finished episodes roll on to the next scenario by themselves.
  * --screenshot PATH --frames N renders N frames in a hidden window, saves PATH, and checks it.
  */
 #include <raylib.h>
@@ -10,6 +12,7 @@
 
 #include "eval.h"
 #include "nn.h"
+#include "selection.h"
 
 typedef struct {
     Texture2D ship;
@@ -86,7 +89,7 @@ static void hud_add(Hud *h, const char *text) {
 }
 
 /* HUD text: one line per ship, then time, team score, escapes, and the policy shown. */
-static Hud make_hud(const Env *env, const Policy *p, int seed) {
+static Hud make_hud(const Env *env, const char *policy_label, int seed) {
     Hud h = {.count = 0};
     char line[96];
     int team = 0;
@@ -104,17 +107,20 @@ static Hud make_hud(const Env *env, const Policy *p, int seed) {
     }
     snprintf(line, sizeof line, "Team score %d   escapes %d", team, env->stats.escapes);
     hud_add(&h, line);
-    snprintf(line, sizeof line, "Time %.1f / %d s   seed %d   %s%s", (double)env->tick / TICK_HZ, EPISODE_SECONDS, seed,
-             p->name, p->kind == POLICY_PPO ? (p->sample ? " (sampled)" : " (greedy)") : "");
+    snprintf(line, sizeof line, "Time %.1f / %d s   seed %d   %s", (double)env->tick / TICK_HZ, EPISODE_SECONDS, seed,
+             policy_label);
     hud_add(&h, line);
     return h;
 }
 
-static void draw_hud(const Hud *h, const Art *art, int paused, int speed, int over) {
+static void draw_hud(const Hud *h, const Art *art, int paused, int speed, int over, int follow) {
     for (int k = 0; k < h->count; k++) {
         DrawTextEx(art->font, h->lines[k], (Vector2){12, 10 + 24.0f * k}, 20, 1, RAYWHITE);
     }
     const char *status = over ? "Episode over: R restart, N next scenario" : paused ? "Paused (Space)" : NULL;
+    if (over && follow) {
+        status = "Episode over: next scenario with the newest checkpoint...";
+    }
     if (status) {
         DrawTextEx(art->font, status, (Vector2){12, 10 + 24.0f * h->count}, 20, 1, YELLOW);
     }
@@ -132,6 +138,7 @@ typedef struct {
     const char *policy;
     const char *checkpoint;
     const char *game_data;
+    const char *run_dir;
 } ViewerArgs;
 
 static int parse_args(int argc, char **argv, ViewerArgs *a) {
@@ -159,6 +166,9 @@ static int parse_args(int argc, char **argv, ViewerArgs *a) {
             a->checkpoint = v;
         } else if (!strcmp(flag, "--game-data")) {
             a->game_data = v;
+        } else if (!strcmp(flag, "--run-dir")) {
+            a->run_dir = v;
+            a->policy = "ppo";
         } else {
             fprintf(stderr, "unknown option %s\n", flag);
             return -1;
@@ -215,17 +225,47 @@ static int make_policy(const ViewerArgs *a, Policy *p) {
     return -1;
 }
 
+/* Follow mode: switch to the run's newest checkpoint if it is newer than the one playing. */
+static int follow_latest(const ViewerArgs *a, Policy *p, uint32_t *loaded) {
+    char path[512];
+    uint32_t update;
+    if (latest_checkpoint(a->run_dir, path, sizeof path, &update) != 0) {
+        return *loaded ? 0 : -1;
+    }
+    if (update == *loaded) {
+        return 0;
+    }
+    Policy next;
+    int rc = policy_ppo(&next, path, a->sample);
+    if (rc != 0) {
+        fprintf(stderr, "viewer: %s: %s\n", path, checkpoint_error(rc));
+        return *loaded ? 0 : -1; /* keep playing the previous checkpoint */
+    }
+    if (*loaded) {
+        policy_free(p);
+    }
+    *p = next;
+    *loaded = update;
+    return 0;
+}
+
 int main(int argc, char **argv) {
     ViewerArgs args = {.seed = 1000, .sample = EVAL_SAMPLE_DEFAULT, .assets = "..", .policy = "random",
                        .game_data = "../Game_Data"};
     if (parse_args(argc, argv, &args) != 0) {
         fputs("usage: viewer [--policy random|ppo|legacy] [--checkpoint PATH] [--greedy] [--game-data DIR]\n"
+              "              [--run-dir DIR (follow a training run's newest checkpoint)]\n"
               "              [--seed N] [--assets DIR] [--screenshot PATH --frames N]\n",
               stderr);
         return 2;
     }
     Policy policy;
-    if (make_policy(&args, &policy) != 0) {
+    policy_random(&policy); /* replaced below by the requested policy */
+    uint32_t loaded = 0;
+    if (args.run_dir ? follow_latest(&args, &policy, &loaded) != 0 : make_policy(&args, &policy) != 0) {
+        if (args.run_dir) {
+            fprintf(stderr, "viewer: no checkpoint under %s yet\n", args.run_dir);
+        }
         return 1;
     }
     SetTraceLogLevel(LOG_WARNING);
@@ -239,14 +279,18 @@ int main(int argc, char **argv) {
 
     Env env;
     Pcg32 rng;
-    int seed = args.seed, paused = 0, speed = 1, restart = 1;
+    int seed = args.seed, paused = 0, speed = 1, restart = 1, over_frames = 0;
     int frame = 0, status = 0;
     while (!WindowShouldClose()) {
-        if (IsKeyPressed(KEY_N)) {
+        if (IsKeyPressed(KEY_N) || (args.run_dir && over_frames > 2 * TICK_HZ / policy.action_repeat)) {
             seed++;
             restart = 1;
         }
         if (IsKeyPressed(KEY_R) || restart) {
+            if (args.run_dir) {
+                follow_latest(&args, &policy, &loaded);
+            }
+            over_frames = 0;
             env_reset(&env, (uint64_t)seed);
             env.action_repeat = policy.action_repeat;
             pcg32_seed(&rng, (uint64_t)seed, 0xe7a1u); /* the same action stream as eval */
@@ -265,10 +309,19 @@ int main(int argc, char **argv) {
             env_step(&env, a);
             over = env.terminated || env.truncated;
         }
-        Hud hud = make_hud(&env, &policy, seed);
+        over_frames = over ? over_frames + 1 : 0;
+        char label[64];
+        if (policy.kind == POLICY_PPO && loaded) {
+            snprintf(label, sizeof label, "ppo update %u (%s, following run)", loaded, policy.sample ? "sampled" : "greedy");
+        } else if (policy.kind == POLICY_PPO) {
+            snprintf(label, sizeof label, "ppo (%s)", policy.sample ? "sampled" : "greedy");
+        } else {
+            snprintf(label, sizeof label, "%s", policy.name);
+        }
+        Hud hud = make_hud(&env, label, seed);
         BeginTextureMode(target);
         draw_scene(&env, &art);
-        draw_hud(&hud, &art, paused, speed, over);
+        draw_hud(&hud, &art, paused, speed, over, args.run_dir != NULL);
         EndTextureMode();
         BeginDrawing();
         DrawTextureRec(target.texture, (Rectangle){0, 0, ARENA_SIZE, -ARENA_SIZE}, (Vector2){0, 0}, WHITE);

@@ -146,7 +146,7 @@ Software correctness:
 | AC-012 | `train` writes a manifest, per-update metrics, and loadable checkpoints; threaded and serial updates match | smoke run plus tests |
 | AC-013 | `eval` writes JSON with per-seed rows and summary statistics for `random` and `ppo`; dev and test splits are enforced | eval tests |
 | AC-014 | The `legacy` policy reproduces upstream table lookups and target locking from `Game_Data` | legacy fixture tests |
-| AC-015 | The raylib viewer shows three ships with the original artwork, driven by `ppo`, `random`, or `legacy`, and can save a screenshot | `viewer --screenshot` run plus image inspection |
+| AC-015 | The raylib viewer shows three ships with the original artwork, driven by `ppo`, `random`, or `legacy`, and can save a screenshot. With `--run-dir`, it follows a training run, loading the newest checkpoint for each new episode (user request: "my friend's code had the game playing based on latest checkpoint") | `viewer --screenshot` run plus image inspection |
 | AC-016 | ASan/UBSan runs of all tests plus 1M random decisions are clean; the clang static analyzer reports nothing | `make sanitize`, `make analyze` |
 | AC-017 | README commands for build, train, eval, and view run as written | executing each command |
 | AC-020 | One script builds, tests, smoke-trains, trains, selects, and archives a seed on this Mac | local script run |
@@ -408,6 +408,11 @@ Review scope: PPO_Project/
   - regression: `make -C PPO_Project test` → exit 0; `46 tests, 582 checks, 0 failed checks, 0 failed tests` (T026's λ assertion moved to 0.99)
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
+- [x] T054 | P1 | depends: T038, T036 | AC-015 | Let the viewer follow a run's newest checkpoint; done when: a test finds the newest checkpoint while a screenshot run shows its update.
+  - red: `make -C PPO_Project test T=latest_checkpoint` → exit 2; `tests/test_select.c:74:11: error: call to undeclared function 'latest_checkpoint'`
+  - green: `make -C PPO_Project test T=latest_checkpoint` → exit 0; `PASS select_finds_latest_checkpoint`; `build/viewer --run-dir runs/pilot2 --frames 60 --screenshot build/viewer-follow.png` → exit 0 with `hud: Time 2.0 / 120 s   seed 1000   ppo update 1800 (sampled, following run)`
+  - regression: `make -C PPO_Project test` → exit 0; `47 tests, 589 checks, 0 failed checks, 0 failed tests`; `make -C PPO_Project viewer-check` → exit 0
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: raylib 6.2 (Homebrew)
 - [ ] T042 | P1 | depends: T031, T036, T053 | AC-018 | Train seed 1 on this Mac for 20 minutes; done when: its run directory holds full metrics plus a selected checkpoint.
 - [x] T045 | P1 | depends: T036 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.
   - red: `sh scripts/container_train.sh build/container-check 7 4096 30` → exit 127; `sh: scripts/container_train.sh: No such file or directory`

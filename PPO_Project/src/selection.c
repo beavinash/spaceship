@@ -79,38 +79,61 @@ static int score_candidate(Candidate *c) {
     return 0;
 }
 
-int select_run(const char *run_dir, Candidate *out, int cap, int *n) {
-    *n = 0;
+/* Every checkpoint of a run in update order: each .bin in checkpoints, then final.bin unless its update is listed. */
+static int list_checkpoints(const char *run_dir, Candidate *out, int cap) {
+    int n = 0;
     char dir[4096];
     snprintf(dir, sizeof dir, "%s/checkpoints", run_dir);
     DIR *d = opendir(dir);
     if (d) {
         struct dirent *ent;
-        while ((ent = readdir(d)) != NULL && *n < cap) {
+        while ((ent = readdir(d)) != NULL && n < cap) {
             size_t len = strlen(ent->d_name);
             if (len > 4 && !strcmp(ent->d_name + len - 4, ".bin")) {
-                snprintf(out[*n].path, sizeof out[*n].path, "%s/%s", dir, ent->d_name);
-                (*n)++;
+                snprintf(out[n].path, sizeof out[n].path, "%s/%s", dir, ent->d_name);
+                n++;
             }
         }
         closedir(d);
     }
-    qsort(out, (size_t)*n, sizeof *out, compare_paths);
-    for (int i = 0; i < *n; i++) {
+    qsort(out, (size_t)n, sizeof *out, compare_paths);
+    for (int i = 0; i < n; i++) {
         out[i].update = checkpoint_update(out[i].path);
     }
     char final_path[512];
     snprintf(final_path, sizeof final_path, "%s/final.bin", run_dir);
     uint32_t final_update = checkpoint_update(final_path);
     int seen = final_update == 0;
-    for (int i = 0; i < *n; i++) {
+    for (int i = 0; i < n; i++) {
         seen |= out[i].update == final_update;
     }
-    if (!seen && *n < cap) {
-        snprintf(out[*n].path, sizeof out[*n].path, "%s", final_path);
-        out[*n].update = final_update;
-        (*n)++;
+    if (!seen && n < cap) {
+        snprintf(out[n].path, sizeof out[n].path, "%s", final_path);
+        out[n].update = final_update;
+        n++;
     }
+    return n;
+}
+
+int latest_checkpoint(const char *run_dir, char *path, size_t size, uint32_t *update) {
+    static Candidate all[1024];
+    int n = list_checkpoints(run_dir, all, 1024);
+    int best = -1;
+    for (int i = 0; i < n; i++) {
+        if (all[i].update > 0 && (best < 0 || all[i].update >= all[best].update)) {
+            best = i;
+        }
+    }
+    if (best < 0) {
+        return -1;
+    }
+    snprintf(path, size, "%s", all[best].path);
+    *update = all[best].update;
+    return 0;
+}
+
+int select_run(const char *run_dir, Candidate *out, int cap, int *n) {
+    *n = list_checkpoints(run_dir, out, cap);
     for (int i = 0; i < *n; i++) {
         if (score_candidate(&out[i]) != 0) {
             fprintf(stderr, "select: cannot evaluate %s\n", out[i].path);

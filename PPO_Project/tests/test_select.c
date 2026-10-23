@@ -67,3 +67,25 @@ void test_select_best_breaks_ties_deterministically(void) {
         CHECK(strstr(buf, "\"candidates\": [") != NULL);
     }
 }
+
+void test_select_finds_latest_checkpoint(void) {
+    char path[512];
+    uint32_t update = 0;
+    CHECK(latest_checkpoint("build/no-such-run", path, sizeof path, &update) != 0);
+    /* build/test-run-select holds update_000001..3 plus final.bin (update 3) from the test above. */
+    CHECK(latest_checkpoint("build/test-run-select", path, sizeof path, &update) == 0);
+    CHECK(update == 3);
+    CHECK(strstr(path, "update_000003.bin") != NULL || strstr(path, "final.bin") != NULL);
+    RunConfig rc = run_config_default();
+    rc.train.envs = 2;
+    rc.train.steps = 8;
+    rc.train.hidden = 16;
+    rc.total_decisions = 5 * 2 * 8;
+    rc.checkpoint_every = 2; /* snapshots at 2 and 4; final.bin at 5 is the newest */
+    rc.run_dir = "build/test-run-latest";
+    remove("build/test-run-latest/checkpoints/update_000002.bin");
+    remove("build/test-run-latest/checkpoints/update_000004.bin");
+    CHECK(train_run(&rc) == 0);
+    CHECK(latest_checkpoint("build/test-run-latest", path, sizeof path, &update) == 0);
+    CHECK(update == 5 && strstr(path, "final.bin") != NULL);
+}
