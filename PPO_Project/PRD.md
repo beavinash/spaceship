@@ -298,7 +298,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=toy_` → exit 0; `toy: random -1.212, PPO 1.749, hit rate 1.00 after 150 updates, 6992 episodes` (documented threshold: hit rate >= 0.9 and mean return >= 1.2 within 150 updates, seed 1)
   - regression: `make -C PPO_Project test` → exit 0; `30 tests, 353 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 12 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T028 | P0 | depends: T027, T017 | AC-011 | Collect vectorized arena rollouts with one network per ship; done when: tests confirm per-ship networks, sample counts, death masks.
+- [x] T028 | P0 | depends: T027, T017 | AC-011 | Collect vectorized arena rollouts with one network per ship; done when: tests confirm per-ship networks, sample counts, death masks.
+  - red: `make -C PPO_Project test T=trainer_collects` → exit 2; `tests/test_trainer.c:5:10: fatal error: 'trainer.h' file not found`
+  - green: `make -C PPO_Project test T=trainer_collects` → exit 0; `PASS trainer_collects_per_ship_rollouts`
+  - regression: `make -C PPO_Project test` → exit 0; `31 tests, 370 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 14 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T029 | P0 | depends: T028 | AC-012 | Add a `train` command logging per-update CSV metrics; done when: a 2-update smoke run writes every documented column.
 - [ ] T030 | P1 | depends: T029, T022 | AC-012 | Write run manifests with periodic checkpoints; done when: a smoke run directory holds a manifest plus loadable checkpoints.
 - [ ] T031 | P1 | depends: T030 | AC-012 | Update the three ship networks on parallel pthreads; done when: threaded results match serial results bit for bit for a fixed seed.
