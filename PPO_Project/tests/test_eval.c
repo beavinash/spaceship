@@ -3,6 +3,7 @@
 
 #include "check.h"
 #include "eval.h"
+#include "trainer.h"
 
 static int file_has(const char *path, const char *needle) {
     FILE *f = fopen(path, "r");
@@ -66,4 +67,75 @@ void test_eval_random_policy_dev_report(void) {
     CHECK(file_has(path, "\"deaths\": {\"mean\": "));
     CHECK(file_has(path, "\"escapes\": {\"mean\": "));
     CHECK(file_has(path, "\"ship_health\": 200"));
+}
+
+/* Keys from the "summary" section onward, in order, separated by '|'. */
+static void summary_keys(const char *path, char *out, size_t cap) {
+    FILE *f = fopen(path, "r");
+    out[0] = '\0';
+    if (!f) {
+        return;
+    }
+    static char buf[1 << 20];
+    size_t n = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    buf[n] = '\0';
+    const char *p = strstr(buf, "\"summary\"");
+    size_t used = 0;
+    while (p && (p = strchr(p, '"')) != NULL) {
+        const char *end = strchr(p + 1, '"');
+        if (!end) {
+            break;
+        }
+        if (end[1] == ':' && used + (size_t)(end - p) + 2 < cap) {
+            memcpy(out + used, p + 1, (size_t)(end - p - 1));
+            used += (size_t)(end - p - 1);
+            out[used++] = '|';
+            out[used] = '\0';
+        }
+        p = end + 1;
+    }
+}
+
+void test_eval_ppo_checkpoint_report_matches_schema(void) {
+    Pcg32 rng;
+    pcg32_seed(&rng, 8u, 8u);
+    Agent agents[NUM_SHIPS];
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        CHECK(agent_init(&agents[k], OBS_DIM, 24, &rng) == 0);
+    }
+    Mlp *nets[CHECKPOINT_NETS];
+    ship_agent_nets(agents, nets);
+    const char *ckpt = "build/test-eval-ckpt.bin";
+    CHECK(checkpoint_save(ckpt, nets, CHECKPOINT_NETS, 12u) == 0);
+
+    Policy p;
+    CHECK(policy_ppo(&p, ckpt, 0) == 0);
+    CHECK(p.kind == POLICY_PPO && p.action_repeat == 4);
+    policy_free(&p);
+    CHECK(policy_ppo(&p, "build/missing.bin", 0) != 0);
+    CHECK(policy_ppo(&p, ckpt, 0) == 0);
+    static EpisodeResult res[100], again[100];
+    int n = 0, m = 0;
+    CHECK(eval_run(&p, "dev", 0, res, &n) == 0 && n == 20);
+    CHECK(eval_run(&p, "dev", 0, again, &m) == 0);
+    int same = 1;
+    for (int i = 0; i < n; i++) {
+        same &= res[i].team_score == again[i].team_score && res[i].survival_seconds == again[i].survival_seconds;
+    }
+    CHECK(same); /* greedy evaluation is reproducible */
+
+    ReportMeta meta = {.policy = "ppo", .split = "dev", .checkpoint = ckpt, .binary = NULL};
+    CHECK(eval_write_json("build/test-eval-ppo.json", &meta, &p, res, n) == 0);
+    CHECK(file_has("build/test-eval-ppo.json", "\"checkpoint\": {\"path\": \"build/test-eval-ckpt.bin\", \"fnv1a\": \""));
+    CHECK(file_has("build/test-eval-ppo.json", "\"policy\": \"ppo\""));
+    char keys_ppo[8192], keys_random[8192];
+    summary_keys("build/test-eval-ppo.json", keys_ppo, sizeof keys_ppo);
+    summary_keys("build/test-eval-random.json", keys_random, sizeof keys_random);
+    CHECK(strlen(keys_ppo) > 100);
+    CHECK(strcmp(keys_ppo, keys_random) == 0);
+    policy_free(&p);
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        agent_free(&agents[k]);
+    }
 }

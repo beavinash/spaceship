@@ -404,6 +404,26 @@ done:
     return rc;
 }
 
+int checkpoint_shape(const char *path, int *n_nets, int sizes[4]) {
+    unsigned char head[8 + 3 * 4 + 5 * 4];
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return CKPT_IO;
+    }
+    size_t got = fread(head, 1, sizeof head, f);
+    fclose(f);
+    size_t at = 8;
+    if (got != sizeof head || memcmp(head, CKPT_MAGIC, 8) != 0 || read_u32(head, &at) != CKPT_VERSION) {
+        return CKPT_FORMAT;
+    }
+    *n_nets = (int)read_u32(head, &at);
+    at += 4; /* update counter */
+    for (int l = 0; l < 4; l++) {
+        sizes[l] = (int)read_u32(head, &at);
+    }
+    return 0;
+}
+
 const char *checkpoint_error(int code) {
     switch (code) {
     case 0:

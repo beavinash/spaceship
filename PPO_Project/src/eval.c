@@ -2,13 +2,70 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include "dist.h"
+#include "trainer.h"
 
 void policy_random(Policy *p) {
     memset(p, 0, sizeof *p);
     p->kind = POLICY_RANDOM;
     p->name = "random";
     p->action_repeat = ACTION_REPEAT;
+}
+
+int policy_ppo(Policy *p, const char *checkpoint, int sample) {
+    memset(p, 0, sizeof *p);
+    int n_nets, sizes[4];
+    int rc = checkpoint_shape(checkpoint, &n_nets, sizes);
+    if (rc != 0) {
+        return rc;
+    }
+    if (n_nets != CHECKPOINT_NETS || sizes[0] != OBS_DIM || sizes[3] != ACTION_LOGITS || sizes[1] <= 0 ||
+        sizes[1] > 4096) {
+        return CKPT_SHAPE;
+    }
+    Agent *agents = calloc(NUM_SHIPS, sizeof *agents);
+    if (!agents) {
+        return CKPT_IO;
+    }
+    Pcg32 rng;
+    pcg32_seed(&rng, 0u, 0u); /* placeholder weights, replaced by the checkpoint */
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        if (agent_init(&agents[k], OBS_DIM, sizes[1], &rng) != 0) {
+            rc = CKPT_IO;
+        }
+    }
+    Mlp *nets[CHECKPOINT_NETS];
+    ship_agent_nets(agents, nets);
+    if (rc == 0) {
+        rc = checkpoint_load(checkpoint, nets, CHECKPOINT_NETS, NULL);
+    }
+    if (rc != 0) {
+        for (int k = 0; k < NUM_SHIPS; k++) {
+            agent_free(&agents[k]);
+        }
+        free(agents);
+        return rc;
+    }
+    p->kind = POLICY_PPO;
+    p->name = "ppo";
+    p->action_repeat = ACTION_REPEAT;
+    p->sample = sample;
+    p->data = agents;
+    return 0;
+}
+
+void policy_free(Policy *p) {
+    if (p->kind == POLICY_PPO && p->data) {
+        Agent *agents = p->data;
+        for (int k = 0; k < NUM_SHIPS; k++) {
+            agent_free(&agents[k]);
+        }
+        free(agents);
+    }
+    memset(p, 0, sizeof *p);
 }
 
 void policy_act(Policy *p, const Env *env, Pcg32 *rng, ShipAction out[NUM_SHIPS]) {
@@ -18,6 +75,20 @@ void policy_act(Policy *p, const Env *env, Pcg32 *rng, ShipAction out[NUM_SHIPS]
             continue;
         }
         switch (p->kind) {
+        case POLICY_PPO: {
+            float obs[OBS_DIM];
+            int a[ACTION_HEADS];
+            Agent *agents = p->data;
+            env_observe(env, k, obs);
+            const float *z = mlp_forward(&agents[k].actor, obs, 1);
+            if (p->sample) {
+                dist_sample(z, rng, a);
+            } else {
+                dist_argmax(z, a);
+            }
+            out[k] = (ShipAction){a[0], a[1], a[2]};
+            break;
+        }
         case POLICY_RANDOM:
         default:
             out[k] = (ShipAction){(int)pcg32_bounded(rng, 3), (int)pcg32_bounded(rng, 3), (int)pcg32_bounded(rng, 2)};

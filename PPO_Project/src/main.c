@@ -12,7 +12,8 @@ static void usage(void) {
           "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
           "            [--death X] [--escape X] [--ally-share X]\n"
-          "  ppo eval --policy random --output FILE.json [--split dev|test] [--final]\n",
+          "  ppo eval --policy random|ppo --output FILE.json [--checkpoint PATH] [--sample]\n"
+          "           [--split dev|test] [--final]\n",
           stderr);
 }
 
@@ -86,12 +87,16 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
 }
 
 static int run_eval(int argc, char **argv, const char *binary) {
-    const char *policy = NULL, *split = "dev", *output = NULL;
-    int final = 0;
+    const char *policy = NULL, *split = "dev", *output = NULL, *checkpoint = NULL;
+    int final = 0, sample = 0;
     for (int i = 0; i < argc; i++) {
         const char *flag = argv[i];
         if (!strcmp(flag, "--final")) {
             final = 1;
+            continue;
+        }
+        if (!strcmp(flag, "--sample")) {
+            sample = 1;
             continue;
         }
         if (i + 1 >= argc) {
@@ -105,6 +110,8 @@ static int run_eval(int argc, char **argv, const char *binary) {
             split = v;
         } else if (!strcmp(flag, "--output")) {
             output = v;
+        } else if (!strcmp(flag, "--checkpoint")) {
+            checkpoint = v;
         } else {
             fprintf(stderr, "unknown option %s\n", flag);
             return 2;
@@ -117,6 +124,12 @@ static int run_eval(int argc, char **argv, const char *binary) {
     Policy p;
     if (!strcmp(policy, "random")) {
         policy_random(&p);
+    } else if (!strcmp(policy, "ppo")) {
+        int rc = checkpoint ? policy_ppo(&p, checkpoint, sample) : CKPT_IO;
+        if (rc != 0) {
+            fprintf(stderr, "eval: %s: %s\n", checkpoint ? checkpoint : "--checkpoint missing", checkpoint_error(rc));
+            return 1;
+        }
     } else {
         fprintf(stderr, "unknown policy %s\n", policy);
         return 2;
@@ -124,16 +137,20 @@ static int run_eval(int argc, char **argv, const char *binary) {
     static EpisodeResult res[100];
     int n = 0;
     if (eval_run(&p, split, final, res, &n) != 0) {
+        policy_free(&p);
         return 1;
     }
-    ReportMeta meta = {.policy = p.name, .split = split, .checkpoint = NULL, .binary = binary};
-    if (eval_write_json(output, &meta, &p, res, n) != 0) {
+    ReportMeta meta = {.policy = p.name, .split = split, .checkpoint = checkpoint, .binary = binary};
+    int written = eval_write_json(output, &meta, &p, res, n);
+    const char *name = p.name; /* static string; policy_free clears the struct */
+    policy_free(&p);
+    if (written != 0) {
         fprintf(stderr, "eval: cannot write %s\n", output);
         return 1;
     }
     Summary score = summarize(res, n, offsetof(EpisodeResult, team_score));
     Summary deaths = summarize(res, n, offsetof(EpisodeResult, deaths));
-    printf("%s on %s (%d scenarios): team score %.2f +/- %.2f, deaths %.2f +/- %.2f -> %s\n", p.name, split, n,
+    printf("%s on %s (%d scenarios): team score %.2f +/- %.2f, deaths %.2f +/- %.2f -> %s\n", name, split, n,
            score.mean, score.ci95, deaths.mean, deaths.ci95, output);
     return 0;
 }

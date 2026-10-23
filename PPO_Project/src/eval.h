@@ -24,6 +24,15 @@ typedef struct {
 /* Uniformly random heads, 4-tick decisions like PPO. */
 void policy_random(Policy *p);
 
+/*
+ * Each ship acts through its own actor from a training checkpoint (hidden size read from the file).
+ * Greedy (most likely index per head) unless sample is set. Returns 0 or a CKPT_ error.
+ */
+int policy_ppo(Policy *p, const char *checkpoint, int sample);
+
+/* Releases what a policy constructor allocated. */
+void policy_free(Policy *p);
+
 /* Actions for every ship; dead ships get stay / no fire. */
 void policy_act(Policy *p, const Env *env, Pcg32 *rng, ShipAction out[NUM_SHIPS]);
 

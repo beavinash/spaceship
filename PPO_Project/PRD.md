@@ -323,7 +323,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=eval_random` → exit 0; `PASS eval_random_policy_dev_report`; CLI: `random on dev (20 scenarios): team score 100.70 +/- 10.57, deaths 1.30 +/- 0.32`
   - regression: `make -C PPO_Project test` → exit 0; `35 tests, 468 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 19 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T033 | P0 | depends: T032, T022 | AC-013 | Evaluate PPO checkpoints in the `eval` command; done when: a checkpoint report matches the random report schema.
+- [x] T033 | P0 | depends: T032, T022 | AC-013 | Evaluate PPO checkpoints in the `eval` command; done when: a checkpoint report matches the random report schema.
+  - red: `make -C PPO_Project test T=eval_` → exit 2; `tests/test_eval.c:113:11: error: call to undeclared function 'policy_ppo'`
+  - green: `make -C PPO_Project test T=eval_` → exit 0; `PASS eval_ppo_checkpoint_report_matches_schema`; CLI: `ppo on dev (20 scenarios): team score 0.30 +/- 0.43, deaths 0.10 +/- 0.13` (2-update smoke checkpoint)
+  - regression: `make -C PPO_Project test` → exit 0; `36 tests, 484 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 19 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T034 | P1 | depends: T032 | AC-014 | Load upstream `Game_Data` tables as a frozen legacy policy; done when: tests reproduce upstream probability lookups for fixed displacements.
 - [ ] T035 | P1 | depends: T034 | AC-014 | Port upstream target locking for the legacy policy; done when: a fixture matches upstream target choice, including ally fallback.
 - [ ] T036 | P1 | depends: T033 | AC-013 | Select the best checkpoint on development seeds; done when: selection picks the highest mean team score with deterministic tie-breaking.
