@@ -168,7 +168,7 @@ void test_env_spawns_seeded_enemies_every_90_ticks(void) {
     env_reset(&b, 5u);
     hold(&a, IDLE, IDLE, IDLE, 900);
     hold(&b, IDLE, IDLE, IDLE, 900);
-    int same = a.n_enemies == b.n_enemies && a.n_enemies == 10;
+    int same = a.n_enemies == b.n_enemies && a.stats.spawned == 10 && b.stats.spawned == 10;
     for (int k = 0; same && k < a.n_enemies; k++) {
         same &= a.enemies[k].x == b.enemies[k].x && a.enemies[k].type == b.enemies[k].type;
     }
@@ -329,4 +329,26 @@ void test_env_ship_dies_at_zero_health(void) {
     CHECK(env.stats.died[0] == 1 && env.events[0].died == 1);
     CHECK(env.stats.alive_ticks[1] == 401);
     CHECK(env.ships[1].alive == 1);
+}
+
+void test_env_counts_live_enemies_escaping_bottom(void) {
+    Env env;
+    quiet_env(&env);
+    env.ships[2].alive = 0;
+    env_add_enemy(&env, 0, 100.0f, 1000.0f); /* crosses y > 1000 on this tick */
+    Enemy *x = env_add_enemy(&env, 0, 300.0f, 1000.0f);
+    x->dead = 1; /* an explosion leaving is not an escape */
+    Enemy *stay = env_add_enemy(&env, 1, 500.0f, 900.0f);
+    uint32_t stay_id = stay->id;
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.n_enemies == 1);
+    CHECK(env.enemies[0].id == stay_id);
+    CHECK(env.stats.escapes == 1);
+    CHECK(env.events[0].escapes == 1 && env.events[1].escapes == 1);
+    CHECK(env.events[2].escapes == 0);
+
+    quiet_env(&env);
+    env_add_enemy(&env, 0, 100.0f, 999.0f); /* still inside after one tick */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.n_enemies == 1 && env.stats.escapes == 0);
 }

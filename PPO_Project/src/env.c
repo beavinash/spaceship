@@ -249,6 +249,28 @@ static void cool_down_enemies(Env *env) {
     }
 }
 
+/*
+ * Upstream Iterate_Enemies drops anything below y = 1000 on its next pass; that cannot touch a ship,
+ * so removing it at the end of this tick is equivalent. A live enemy leaving counts as an escape.
+ */
+static void remove_escaped(Env *env) {
+    int k = 0;
+    while (k < env->n_enemies) {
+        if (env->enemies[k].y <= ARENA_SIZE) {
+            k++;
+            continue;
+        }
+        if (!env->enemies[k].dead) {
+            env->stats.escapes++;
+            for (int i = 0; i < NUM_SHIPS; i++) {
+                env->events[i].escapes += env->ships[i].alive;
+            }
+        }
+        memmove(&env->enemies[k], &env->enemies[k + 1], (size_t)(env->n_enemies - k - 1) * sizeof env->enemies[0]);
+        env->n_enemies--;
+    }
+}
+
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     update_spawner(env);
     resolve_contacts(env);
@@ -261,6 +283,7 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     move_enemies(env);
     cool_down_enemies(env);
     move_missiles(env);
+    remove_escaped(env);
     for (int i = 0; i < NUM_SHIPS; i++) {
         env->stats.alive_ticks[i] += env->ships[i].alive;
     }
