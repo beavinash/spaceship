@@ -362,6 +362,10 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
     }
 }
 
+static float shot_quality(float offset) {
+    return offset < SHOT_RAMP ? 1.0f - offset / SHOT_RAMP : 0.0f;
+}
+
 static float unit(float v) {
     return clampf(v, -1.0f, 1.0f);
 }
@@ -396,6 +400,9 @@ void env_observe(const Env *env, int ship, float *obs) {
     obs[4] = (float)self->ammo / SHIP_AMMO;
     obs[5] = (float)self->alive;
     obs[6] = unit(1.0f - (float)env->tick / (float)env->max_ticks);
+    int would_hit = 0;
+    env_shot_quality(env, ship, &would_hit);
+    obs[7] = (float)would_hit;
 
     for (int j = 1; j < NUM_SHIPS; j++) {
         const Ship *ally = &env->ships[(ship + j) % NUM_SHIPS];
@@ -431,6 +438,7 @@ void env_observe(const Env *env, int ship, float *obs) {
         f[6] = (float)e->dead;
         f[7 + e->type] = 1.0f;
         f[10] = e->attack_cd_left <= 0 ? 1.0f : 0.0f;
+        f[11] = shot_quality(env_fire_solution(env, ship, idx[s], NULL));
     }
 
     for (int m = 0; m < env->n_missiles; m++) {
@@ -565,6 +573,9 @@ float env_fire_solution(const Env *env, int ship, int enemy, int *hit) {
             break;
         }
         float past = (e.y + e.radius) - (m.y + MISSILE_RADIUS); /* > 0: the missile is above the enemy */
+        if (t == 0 && past > reach) {
+            return FIRE_NO_SOLUTION; /* the enemy is below the ship: no shot */
+        }
         if (m.y < -MISSILE_RADIUS || past > reach) {
             break; /* missile gone, or the gap can only grow from here */
         }
@@ -575,4 +586,16 @@ float env_fire_solution(const Env *env, int ship, int enemy, int *hit) {
         }
     }
     return offset;
+}
+
+float env_shot_quality(const Env *env, int ship, int *would_hit) {
+    float best = 0.0f;
+    *would_hit = 0;
+    for (int k = 0; k < env->n_enemies; k++) {
+        int hit = 0;
+        float q = shot_quality(env_fire_solution(env, ship, k, &hit));
+        best = q > best ? q : best;
+        *would_hit |= hit;
+    }
+    return best;
 }

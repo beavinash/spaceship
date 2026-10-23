@@ -54,9 +54,9 @@
 #define EPISODE_TICKS (EPISODE_SECONDS * TICK_HZ)
 
 /* Observation layout (section 3.2): self, two allies, 8 nearest enemies/explosions, 8 nearest missiles. */
-#define OBS_SELF 7
+#define OBS_SELF 8
 #define OBS_ALLY 6
-#define OBS_ENEMY 11
+#define OBS_ENEMY 12
 #define OBS_MISSILE 4
 #define OBS_ENEMY_SLOTS 8
 #define OBS_MISSILE_SLOTS 8
@@ -221,6 +221,12 @@ int env_check_invariants(const Env *env, char *why, size_t why_size);
  */
 #define FIRE_NO_SOLUTION 1e9f
 float env_fire_solution(const Env *env, int ship, int enemy, int *hit);
+
+/* Shot quality falls linearly from 1 (dead centre) to 0 at this horizontal offset. */
+#define SHOT_RAMP 70.0f
+
+/* Best shot quality for `ship` over all live enemies, in [0, 1]; sets *would_hit if any shot would hit. */
+float env_shot_quality(const Env *env, int ship, int *would_hit);
 
 /* FNV-1a over gameplay state and RNG position, for replay and determinism checks. */
 uint64_t env_hash(const Env *env);

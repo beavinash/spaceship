@@ -452,8 +452,8 @@ void test_env_rewards_follow_configured_coefficients(void) {
 }
 
 void test_env_observation_layout_and_bounds(void) {
-    CHECK(OBS_DIM == 139);
-    CHECK(OBS_ALLY_OFFSET == 7 && OBS_ENEMY_OFFSET == 19 && OBS_MISSILE_OFFSET == 107);
+    CHECK(OBS_DIM == 148);
+    CHECK(OBS_ALLY_OFFSET == 8 && OBS_ENEMY_OFFSET == 20 && OBS_MISSILE_OFFSET == 116);
     Env env;
     quiet_env(&env);
     float o[OBS_DIM];
@@ -496,9 +496,9 @@ void test_env_observation_layout_and_bounds(void) {
     CHECK(e0[6] == 0.0f);            /* not an explosion */
     CHECK(e0[7] == 0.0f && e0[8] == 1.0f && e0[9] == 0.0f);
     CHECK(e0[10] == 0.0f);           /* on cooldown */
-    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 11 + 1], 0.3, 1e-6);   /* second: 300 px right */
-    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 22 + 2], -0.6, 1e-6);  /* third: 600 px up */
-    CHECK(o[OBS_ENEMY_OFFSET + 33] == 0.0f);               /* fourth slot empty */
+    CHECK_NEAR(o[OBS_ENEMY_OFFSET + OBS_ENEMY + 1], 0.3, 1e-6);      /* second: 300 px right */
+    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 2 * OBS_ENEMY + 2], -0.6, 1e-6); /* third: 600 px up */
+    CHECK(o[OBS_ENEMY_OFFSET + 3 * OBS_ENEMY] == 0.0f);              /* fourth slot empty */
     const float *m0 = o + OBS_MISSILE_OFFSET;
     CHECK(m0[0] == 1.0f && m0[3] == 1.0f);
     CHECK_NEAR(m0[1], (430.0 - 425.0) / 1000.0, 1e-6);
@@ -510,8 +510,8 @@ void test_env_observation_layout_and_bounds(void) {
         env_add_enemy(&env, 0, 400.0f, 600.0f - 40.0f * (float)k);
     }
     env_observe(&env, 0, o);
-    CHECK(o[OBS_ENEMY_OFFSET + 7 * 11] == 1.0f);
-    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 7 * 11 + 2], -(100.0 + 7 * 40.0) / 1000.0, 1e-6);
+    CHECK(o[OBS_ENEMY_OFFSET + 7 * OBS_ENEMY] == 1.0f);
+    CHECK_NEAR(o[OBS_ENEMY_OFFSET + 7 * OBS_ENEMY + 2], -(100.0 + 7 * 40.0) / 1000.0, 1e-6);
 
     /* Random play: every value stays in [-1, 1] and observing never consumes random numbers. */
     env_reset(&env, 4242u);
@@ -677,5 +677,46 @@ void test_env_fire_solution_matches_real_missiles(void) {
     /* 50 px to the side and still: the missile passes 50 px away. */
     e->x = 435.0f;
     CHECK_NEAR(env_fire_solution(&env, 0, 0, &hit), 50.0, 0.5);
+    CHECK(hit == 0);
+}
+
+void test_env_observation_fire_solution_features(void) {
+    Env env;
+    quiet_env(&env);
+    env.ships[1].alive = env.ships[2].alive = 0;
+    float o[OBS_DIM];
+    env_observe(&env, 0, o);
+    CHECK(o[7] == 0.0f); /* no enemies: nothing to hit */
+
+    Enemy *above = env_add_enemy(&env, 2, 385.0f, 400.0f); /* dead centre above ship 0, held still */
+    above->vx = 0.0f;
+    Enemy *aside = env_add_enemy(&env, 2, 435.0f, 300.0f); /* 50 px to the side, held still */
+    aside->vx = 0.0f;
+    env_add_enemy(&env, 0, 400.0f, 800.0f);                /* below: no shot */
+    env_observe(&env, 0, o);
+    CHECK(o[7] == 1.0f);
+    int ok = 1;
+    for (int slot = 0; slot < 3; slot++) {
+        const float *f = o + OBS_ENEMY_OFFSET + slot * OBS_ENEMY;
+        float dy = f[2] * 1000.0f;
+        float q = f[OBS_ENEMY - 1];
+        if (dy < -350.0f) {
+            ok &= fabsf(q - (1.0f - 50.0f / SHOT_RAMP)) < 0.01f; /* aside: partial quality */
+        } else if (dy < 0.0f) {
+            ok &= q > 0.99f;                                     /* above: dead centre */
+        } else {
+            ok &= q == 0.0f;                                     /* below: no shot */
+        }
+    }
+    CHECK(ok);
+    int hit = 0;
+    CHECK(env_fire_solution(&env, 0, 2, &hit) >= FIRE_NO_SOLUTION && hit == 0);
+    CHECK_NEAR(env_shot_quality(&env, 0, &hit), 1.0, 0.01);
+    CHECK(hit == 1);
+
+    env.enemies[0].x = 600.0f; /* move the centred enemy away: only the 50 px near miss remains */
+    env_observe(&env, 0, o);
+    CHECK(o[7] == 0.0f);
+    CHECK_NEAR(env_shot_quality(&env, 0, &hit), 1.0 - 50.0 / SHOT_RAMP, 0.01);
     CHECK(hit == 0);
 }

@@ -382,7 +382,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=fire_solution` → exit 0; `PASS env_fire_solution_matches_real_missiles` (1,152 grid cases agree with missiles fired in the real simulation; the return value became the horizontal offset plus a hit flag after a first version returned only the contact distance)
   - regression: `make -C PPO_Project test` → exit 0; `41 tests, 542 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T048 | P0 | depends: T047 | AC-006 | Add fire-solution features to the observation; done when: tests check length 148 with per-slot values matching the predictor.
+- [x] T048 | P0 | depends: T047 | AC-006 | Add fire-solution features to the observation; done when: tests check length 148 with per-slot values matching the predictor.
+  - red: `make -C PPO_Project test T=observation` → exit 2; `tests/test_env.c:714:16: error: call to undeclared function 'env_shot_quality'`
+  - green: `make -C PPO_Project test T=observation` → exit 0; `PASS env_observation_fire_solution_features` with `PASS env_observation_layout_and_bounds` (layout test updated to 148 floats)
+  - regression: `make -C PPO_Project test` → exit 0; `42 tests, 551 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T049 | P0 | depends: T047 | AC-022 | Add potential-based alignment shaping to the reward; done when: a fixture shows 0.5 · (γΦ' − Φ) with Φ' = 0 at death.
 - [ ] T050 | P0 | depends: T015 | AC-022 | Penalize ship time inside the 60 px edge band; done when: a fixture charges the penalty only inside the band.
 - [ ] T051 | P1 | depends: T048, T050 | AC-023 | Report edge-time share with predicted-hit shot share in metrics; done when: CSV plus JSON tests find both values.
