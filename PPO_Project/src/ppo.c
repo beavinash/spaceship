@@ -1,6 +1,7 @@
 #include "ppo.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -156,4 +157,184 @@ double ppo_loss(int b, const float *logits, const float *values, const int *acti
         stats->clipfrac = clipped / b;
     }
     return pg - ent_coef * ent + vf_coef * vl;
+}
+
+int agent_init(Agent *ag, int obs_dim, int hidden, Pcg32 *rng) {
+    memset(ag, 0, sizeof *ag);
+    if (mlp_init(&ag->actor, obs_dim, hidden, ACTION_LOGITS, 0.01f, rng) != 0 ||
+        mlp_init(&ag->critic, obs_dim, hidden, 1, 1.0f, rng) != 0 ||
+        adam_init(&ag->opt_actor, ag->actor.n_params) != 0 || adam_init(&ag->opt_critic, ag->critic.n_params) != 0) {
+        agent_free(ag);
+        return -1;
+    }
+    return 0;
+}
+
+void agent_free(Agent *ag) {
+    mlp_free(&ag->actor);
+    mlp_free(&ag->critic);
+    adam_free(&ag->opt_actor);
+    adam_free(&ag->opt_critic);
+}
+
+PpoConfig ppo_config_default(void) {
+    PpoConfig cfg = {
+        .gamma = 0.99f,
+        .lambda = 0.95f,
+        .clip = 0.2f,
+        .vf_coef = 0.5f,
+        .ent_coef = 0.01f,
+        .max_grad_norm = 0.5f,
+        .lr = 3e-4f,
+        .epochs = 4,
+        .minibatches = 4,
+        .norm_adv = 1,
+    };
+    return cfg;
+}
+
+int ppo_epoch_order(const Rollout *r, Pcg32 *rng, int *order) {
+    int count = 0;
+    for (int i = 0; i < r->steps * r->envs; i++) {
+        if (r->active[i]) {
+            order[count++] = i;
+        }
+    }
+    for (int k = count - 1; k > 0; k--) { /* Fisher-Yates */
+        int j = (int)pcg32_bounded(rng, (uint32_t)k + 1);
+        int tmp = order[k];
+        order[k] = order[j];
+        order[j] = tmp;
+    }
+    return count;
+}
+
+void ppo_minibatch_bounds(int count, int m, int k, int *lo, int *hi) {
+    *lo = (int)((long long)count * k / m);
+    *hi = (int)((long long)count * (k + 1) / m);
+}
+
+static double explained_variance(const Rollout *r) {
+    double n = 0.0, mean_ret = 0.0, mean_err = 0.0;
+    for (int i = 0; i < r->steps * r->envs; i++) {
+        if (r->active[i]) {
+            n += 1.0;
+            mean_ret += r->returns[i];
+            mean_err += r->returns[i] - r->values[i];
+        }
+    }
+    if (n < 2.0) {
+        return 0.0;
+    }
+    mean_ret /= n;
+    mean_err /= n;
+    double var_ret = 0.0, var_err = 0.0;
+    for (int i = 0; i < r->steps * r->envs; i++) {
+        if (r->active[i]) {
+            double d = r->returns[i] - mean_ret;
+            double e = (r->returns[i] - r->values[i]) - mean_err;
+            var_ret += d * d;
+            var_err += e * e;
+        }
+    }
+    return var_ret > 0.0 ? 1.0 - var_err / var_ret : 0.0;
+}
+
+void ppo_update(Agent *ag, const Rollout *r, const PpoConfig *cfg, Pcg32 *rng, PpoStats *stats) {
+    const int total = r->steps * r->envs;
+    const int d = r->obs_dim;
+    const int cap = total / cfg->minibatches + 1;
+    int *order = calloc((size_t)total, sizeof *order);
+    float *obs = malloc((size_t)cap * d * sizeof *obs);
+    int *act = malloc((size_t)cap * ACTION_HEADS * sizeof *act);
+    float *old_logp = malloc((size_t)cap * sizeof *old_logp);
+    float *adv = malloc((size_t)cap * sizeof *adv);
+    float *ret = malloc((size_t)cap * sizeof *ret);
+    float *logits = malloc((size_t)cap * ACTION_LOGITS * sizeof *logits);
+    float *values = malloc((size_t)cap * sizeof *values);
+    float *g_logits = malloc((size_t)cap * ACTION_LOGITS * sizeof *g_logits);
+    float *g_values = malloc((size_t)cap * sizeof *g_values);
+    memset(stats, 0, sizeof *stats);
+    if (!order || !obs || !act || !old_logp || !adv || !ret || !logits || !values || !g_logits || !g_values) {
+        fprintf(stderr, "ppo_update: out of memory\n");
+        abort();
+    }
+    stats->explained_var = explained_variance(r);
+
+    for (int epoch = 0; epoch < cfg->epochs; epoch++) {
+        int count = ppo_epoch_order(r, rng, order);
+        stats->samples = count;
+        for (int k = 0; k < cfg->minibatches; k++) {
+            int lo, hi;
+            ppo_minibatch_bounds(count, cfg->minibatches, k, &lo, &hi);
+            int b = hi - lo;
+            if (b <= 0) {
+                continue;
+            }
+            for (int j = 0; j < b; j++) {
+                int i = order[lo + j];
+                memcpy(obs + (size_t)j * d, r->obs + (size_t)i * d, (size_t)d * sizeof *obs);
+                memcpy(act + (size_t)j * ACTION_HEADS, r->actions + (size_t)i * ACTION_HEADS,
+                       ACTION_HEADS * sizeof *act);
+                old_logp[j] = r->logp[i];
+                adv[j] = r->advantages[i];
+                ret[j] = r->returns[i];
+            }
+            if (cfg->norm_adv && b > 1) {
+                double mean = 0.0, sq = 0.0;
+                for (int j = 0; j < b; j++) {
+                    mean += adv[j];
+                }
+                mean /= b;
+                for (int j = 0; j < b; j++) {
+                    sq += (adv[j] - mean) * (adv[j] - mean);
+                }
+                double sd = sqrt(sq / (b - 1)); /* unbiased, as torch.std */
+                for (int j = 0; j < b; j++) {
+                    adv[j] = (float)((adv[j] - mean) / (sd + 1e-8));
+                }
+            }
+            mlp_zero_grad(&ag->actor);
+            mlp_zero_grad(&ag->critic);
+            memcpy(logits, mlp_forward(&ag->actor, obs, b), (size_t)b * ACTION_LOGITS * sizeof *logits);
+            memcpy(values, mlp_forward(&ag->critic, obs, b), (size_t)b * sizeof *values);
+            PpoLossStats ls;
+            ppo_loss(b, logits, values, act, old_logp, adv, ret, cfg->clip, cfg->vf_coef, cfg->ent_coef, g_logits,
+                     g_values, &ls);
+            mlp_backward(&ag->actor, obs, g_logits, b);
+            mlp_backward(&ag->critic, obs, g_values, b);
+            float *groups[2] = {ag->actor.grads, ag->critic.grads};
+            const int sizes[2] = {ag->actor.n_params, ag->critic.n_params};
+            float norm = clip_grad_norm(groups, sizes, 2, cfg->max_grad_norm);
+            adam_step(&ag->opt_actor, ag->actor.params, ag->actor.grads, cfg->lr);
+            adam_step(&ag->opt_critic, ag->critic.params, ag->critic.grads, cfg->lr);
+
+            stats->pg_loss += ls.pg_loss;
+            stats->v_loss += ls.v_loss;
+            stats->entropy += ls.entropy;
+            stats->approx_kl += ls.approx_kl;
+            stats->clipfrac += ls.clipfrac;
+            stats->grad_norm += norm;
+            stats->minibatch_updates++;
+        }
+    }
+    if (stats->minibatch_updates > 0) {
+        double m = stats->minibatch_updates;
+        stats->pg_loss /= m;
+        stats->v_loss /= m;
+        stats->entropy /= m;
+        stats->approx_kl /= m;
+        stats->clipfrac /= m;
+        stats->grad_norm /= m;
+    }
+    free(order);
+    free(obs);
+    free(act);
+    free(old_logp);
+    free(adv);
+    free(ret);
+    free(logits);
+    free(values);
+    free(g_logits);
+    free(g_values);
 }

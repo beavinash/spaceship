@@ -130,3 +130,123 @@ void test_ppo_clipped_loss_gradients(void) {
     }
     CHECK(clipped_err < 1e-6);
 }
+
+/* A rollout whose old log-probs and values come from the agent itself, as during collection. */
+static void fill_from_agent(Rollout *r, Agent *ag, Pcg32 *rng) {
+    float obs[3];
+    for (int t = 0; t < r->steps; t++) {
+        for (int n = 0; n < r->envs; n++) {
+            for (int k = 0; k < 3; k++) {
+                obs[k] = 2.0f * pcg32_float(rng) - 1.0f;
+            }
+            const float *z = mlp_forward(&ag->actor, obs, 1);
+            int a[ACTION_HEADS];
+            dist_sample(z, rng, a);
+            float logp = dist_log_prob(z, a);
+            float v = mlp_forward(&ag->critic, obs, 1)[0];
+            int active = !(n == 1 && t >= 5); /* env 1 dies after step 4 */
+            rollout_record(r, t, n, active, obs, a, logp, v);
+            /* Reward favours horizontal "right" when obs[0] > 0, so there is something to learn. */
+            float reward = (obs[0] > 0.0f) == (a[0] == 2 /* right */) ? 1.0f : 0.0f;
+            rollout_outcome(r, t, n, reward, t == 4 && n == 1, 0.0f);
+        }
+    }
+}
+
+static void full_batch_losses(Agent *ag, const Rollout *r, double *pg, double *vl) {
+    int n = r->steps * r->envs;
+    PpoLossStats st;
+    float *adv = malloc((size_t)n * sizeof *adv);
+    double mean = 0.0, sq = 0.0;
+    int m = 0;
+    for (int i = 0; i < n; i++) {
+        if (r->active[i]) {
+            mean += r->advantages[i];
+            m++;
+        }
+    }
+    mean /= m;
+    for (int i = 0; i < n; i++) {
+        if (r->active[i]) {
+            sq += (r->advantages[i] - mean) * (r->advantages[i] - mean);
+        }
+    }
+    double sd = sqrt(sq / m) + 1e-8;
+    *pg = 0.0;
+    *vl = 0.0;
+    for (int i = 0; i < n; i++) {
+        if (!r->active[i]) {
+            continue;
+        }
+        adv[i] = (float)((r->advantages[i] - mean) / sd);
+        const float *obs = r->obs + (size_t)i * r->obs_dim;
+        float z[ACTION_LOGITS];
+        memcpy(z, mlp_forward(&ag->actor, obs, 1), sizeof z);
+        float v = mlp_forward(&ag->critic, obs, 1)[0];
+        ppo_loss(1, z, &v, r->actions + (size_t)i * ACTION_HEADS, r->logp + i, adv + i, r->returns + i, 0.2f, 0.5f,
+                 0.0f, NULL, NULL, &st);
+        *pg += st.pg_loss / m;
+        *vl += st.v_loss / m;
+    }
+    free(adv);
+}
+
+void test_ppo_minibatch_epochs_cover_active_samples(void) {
+    Pcg32 rng;
+    pcg32_seed(&rng, 31u, 7u);
+    Agent ag;
+    CHECK(agent_init(&ag, 3, 16, &rng) == 0);
+    Rollout r;
+    CHECK(rollout_init(&r, 16, 4, 3) == 0);
+    fill_from_agent(&r, &ag, &rng);
+    const float last[4] = {0, 0, 0, 0};
+    rollout_gae(&r, last, 0.99f, 0.95f);
+
+    int n = r.steps * r.envs;
+    int *order = malloc((size_t)n * sizeof *order);
+    int *seen = calloc((size_t)n, sizeof *seen);
+    int count = ppo_epoch_order(&r, &rng, order);
+    CHECK(count == rollout_active_count(&r) && count == n - 11);
+    int lo, hi, covered = 0;
+    for (int k = 0; k < 4; k++) {
+        ppo_minibatch_bounds(count, 4, k, &lo, &hi);
+        CHECK(hi - lo >= count / 4);
+        for (int j = lo; j < hi; j++) {
+            seen[order[j]]++;
+            covered++;
+        }
+    }
+    CHECK(covered == count);
+    int exactly_once = 1;
+    for (int i = 0; i < n; i++) {
+        exactly_once &= seen[i] == (r.active[i] ? 1 : 0);
+    }
+    CHECK(exactly_once);
+    int *again = malloc((size_t)n * sizeof *again);
+    ppo_epoch_order(&r, &rng, again);
+    CHECK(memcmp(order, again, (size_t)count * sizeof *order) != 0); /* reshuffled every epoch */
+
+    PpoConfig cfg = ppo_config_default();
+    CHECK_NEAR(cfg.gamma, 0.99, 1e-7);
+    CHECK_NEAR(cfg.lambda, 0.95, 1e-7);
+    CHECK_NEAR(cfg.clip, 0.2, 1e-7);
+    CHECK(cfg.epochs == 4 && cfg.minibatches == 4);
+    cfg.lr = 3e-3f;
+    double pg0, vl0, pg1, vl1;
+    full_batch_losses(&ag, &r, &pg0, &vl0);
+    PpoStats st;
+    ppo_update(&ag, &r, &cfg, &rng, &st);
+    full_batch_losses(&ag, &r, &pg1, &vl1);
+    CHECK(vl1 < vl0);
+    CHECK(pg1 < pg0);
+    CHECK(st.minibatch_updates == cfg.epochs * cfg.minibatches);
+    CHECK(st.samples == count);
+    CHECK(isfinite(st.pg_loss) && isfinite(st.v_loss) && st.entropy > 0.0 && isfinite(st.explained_var));
+    CHECK(st.grad_norm > 0.0);
+
+    free(order);
+    free(seen);
+    free(again);
+    rollout_free(&r);
+    agent_free(&ag);
+}

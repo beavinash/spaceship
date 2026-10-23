@@ -288,7 +288,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=clipped_loss` → exit 0; `PASS ppo_clipped_loss_gradients`
   - regression: `make -C PPO_Project test` → exit 0; `27 tests, 320 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T026 | P0 | depends: T024, T025, T021 | AC-009 | Run shuffled minibatch epochs with per-minibatch advantage normalization; done when: each active sample is visited exactly once per epoch.
+- [x] T026 | P0 | depends: T024, T025, T021 | AC-009 | Run shuffled minibatch epochs with per-minibatch advantage normalization; done when: each active sample is visited exactly once per epoch.
+  - red: `make -C PPO_Project test T=minibatch_epochs` → exit 2; `tests/test_ppo.c:135:41: error: unknown type name 'Agent'`
+  - green: `make -C PPO_Project test T=minibatch_epochs` → exit 0; `PASS ppo_minibatch_epochs_cover_active_samples`
+  - regression: `make -C PPO_Project test` → exit 0; `28 tests, 340 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files` after zero-initialising the order buffer; dependency audit: unavailable (no third-party code in the core)
 - [ ] T027 | P0 | depends: T026 | AC-010 | Train PPO on a toy target-reaching environment; done when: seed 1 exceeds the documented return threshold within the documented update budget.
 - [ ] T028 | P0 | depends: T027, T017 | AC-011 | Collect vectorized arena rollouts with one network per ship; done when: tests confirm per-ship networks, sample counts, death masks.
 - [ ] T029 | P0 | depends: T028 | AC-012 | Add a `train` command logging per-update CSV metrics; done when: a 2-update smoke run writes every documented column.

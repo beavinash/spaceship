@@ -68,4 +68,53 @@ double ppo_loss(int b, const float *logits, const float *values, const int *acti
                 const float *adv, const float *ret, float clip, float vf_coef, float ent_coef, float *g_logits,
                 float *g_values, PpoLossStats *stats);
 
+/* Separate actor (ACTION_LOGITS outputs) and critic (1 output) networks, each with its own Adam state. */
+typedef struct {
+    Mlp actor;
+    Mlp critic;
+    Adam opt_actor;
+    Adam opt_critic;
+} Agent;
+
+/* Returns 0, or -1 if memory runs out. Policy output gain 0.01, value output gain 1. */
+int agent_init(Agent *ag, int obs_dim, int hidden, Pcg32 *rng);
+void agent_free(Agent *ag);
+
+typedef struct {
+    float gamma;
+    float lambda;
+    float clip;
+    float vf_coef;
+    float ent_coef;
+    float max_grad_norm;
+    float lr;
+    int epochs;
+    int minibatches;
+    int norm_adv; /* normalize advantages within each minibatch */
+} PpoConfig;
+
+/* Section 3.3 defaults. */
+PpoConfig ppo_config_default(void);
+
+typedef struct {
+    double pg_loss;
+    double v_loss;
+    double entropy;
+    double approx_kl;
+    double clipfrac;
+    double explained_var; /* of the critic's rollout values against GAE returns, before the update */
+    double grad_norm;     /* mean pre-clip norm */
+    int minibatch_updates;
+    int samples;
+} PpoStats;
+
+/* Active sample indices in a fresh random order; returns how many. */
+int ppo_epoch_order(const Rollout *r, Pcg32 *rng, int *order);
+
+/* Minibatch k of m over count shuffled samples is order[lo, hi). */
+void ppo_minibatch_bounds(int count, int m, int k, int *lo, int *hi);
+
+/* Epochs of shuffled minibatch updates on the actor and critic from one rollout with GAE already computed. */
+void ppo_update(Agent *ag, const Rollout *r, const PpoConfig *cfg, Pcg32 *rng, PpoStats *stats);
+
 #endif
