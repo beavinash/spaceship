@@ -1,5 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "check.h"
 #include "nn.h"
@@ -196,4 +199,77 @@ void test_nn_adam_and_gradient_clipping(void) {
     CHECK_NEAR(b[0], 0.8, 1e-6);
     CHECK_NEAR(clip_grad_norm(groups, sizes, 2, 10.0f), 1.0, 1e-6);
     CHECK_NEAR(a[0], 0.6, 1e-6); /* already within the limit: unchanged */
+}
+
+static long file_size(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return -1;
+    }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fclose(f);
+    return n;
+}
+
+static void poke_byte(const char *path, long offset) {
+    FILE *f = fopen(path, "r+b");
+    if (!f) {
+        CHECK(f != NULL);
+        return;
+    }
+    fseek(f, offset, SEEK_SET);
+    int c = fgetc(f);
+    fseek(f, offset, SEEK_SET);
+    fputc(c ^ 0x5a, f);
+    fclose(f);
+}
+
+void test_nn_checkpoint_roundtrip_and_rejection(void) {
+    const char *path = "build/test-checkpoint.bin";
+    Pcg32 rng;
+    pcg32_seed(&rng, 21u, 1u);
+    Mlp a, b, fresh_a, fresh_b, narrow;
+    CHECK(mlp_init(&a, 7, 12, 8, 0.01f, &rng) == 0);
+    CHECK(mlp_init(&b, 7, 12, 1, 1.0f, &rng) == 0);
+    CHECK(mlp_init(&fresh_a, 7, 12, 8, 0.01f, &rng) == 0);
+    CHECK(mlp_init(&fresh_b, 7, 12, 1, 1.0f, &rng) == 0);
+    CHECK(mlp_init(&narrow, 7, 6, 8, 0.01f, &rng) == 0);
+    Mlp *src[2] = {&a, &b};
+    Mlp *dst[2] = {&fresh_a, &fresh_b};
+
+    CHECK(checkpoint_save(path, src, 2, 37u) == 0);
+    uint32_t update = 0;
+    CHECK(checkpoint_load(path, dst, 2, &update) == 0);
+    CHECK(update == 37u);
+    CHECK(memcmp(a.params, fresh_a.params, (size_t)a.n_params * sizeof(float)) == 0);
+    CHECK(memcmp(b.params, fresh_b.params, (size_t)b.n_params * sizeof(float)) == 0);
+    long size = file_size(path);
+    CHECK(size == 8 + 3 * 4 + 2 * 5 * 4 + (long)(a.n_params + b.n_params) * 4 + 8);
+
+    Mlp *wrong_shape[2] = {&narrow, &fresh_b};
+    CHECK(checkpoint_load(path, wrong_shape, 2, &update) == CKPT_SHAPE);
+    CHECK(checkpoint_load(path, dst, 1, &update) == CKPT_SHAPE);
+
+    float before = fresh_a.params[3];
+    poke_byte(path, size / 2);
+    CHECK(checkpoint_load(path, dst, 2, &update) == CKPT_CHECKSUM);
+    CHECK(fresh_a.params[3] == before); /* a rejected file changes nothing */
+
+    CHECK(checkpoint_save(path, src, 2, 1u) == 0);
+    CHECK(truncate(path, size - 3) == 0);
+    CHECK(checkpoint_load(path, dst, 2, &update) == CKPT_FORMAT);
+    CHECK(checkpoint_load("build/no-such-checkpoint.bin", dst, 2, &update) == CKPT_IO);
+
+    a.params[0] = NAN;
+    CHECK(checkpoint_save(path, src, 2, 2u) == 0);
+    CHECK(checkpoint_load(path, dst, 2, &update) == CKPT_NONFINITE);
+    CHECK(checkpoint_error(CKPT_CHECKSUM) != NULL);
+
+    mlp_free(&a);
+    mlp_free(&b);
+    mlp_free(&fresh_a);
+    mlp_free(&fresh_b);
+    mlp_free(&narrow);
+    remove(path);
 }

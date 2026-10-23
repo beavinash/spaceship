@@ -268,7 +268,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=adam` → exit 0; `PASS nn_adam_and_gradient_clipping`
   - regression: `make -C PPO_Project test` → exit 0; `23 tests, 267 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 8 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T022 | P0 | depends: T019 | AC-008 | Save versioned checkpoints with dimension headers plus checksums; done when: round trips are exact while corrupt or mismatched files are rejected.
+- [x] T022 | P0 | depends: T019 | AC-008 | Save versioned checkpoints with dimension headers plus checksums; done when: round trips are exact while corrupt or mismatched files are rejected.
+  - red: `make -C PPO_Project test T=checkpoint` → exit 2; `tests/test_nn.c:237:11: error: call to undeclared function 'checkpoint_save'`
+  - green: `make -C PPO_Project test T=checkpoint` → exit 0; `PASS nn_checkpoint_roundtrip_and_rejection` (first implementation reported shape mismatches as length errors; the header is now checked first)
+  - regression: `make -C PPO_Project test` → exit 0; `24 tests, 289 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 8 files` after guarding a test helper's fopen; dependency audit: unavailable (no third-party code in the core)
 - [ ] T023 | P0 | depends: T020 | AC-009 | Store per-ship rollout samples with activity masks; done when: a buffer test shows post-death steps masked.
 - [ ] T024 | P0 | depends: T023 | AC-009 | Compute GAE with termination, truncation bootstrap, masks; done when: outputs match a hand-computed fixture.
 - [ ] T025 | P0 | depends: T020 | AC-009 | Compute clipped PPO loss gradients for policy, value, entropy terms; done when: finite-difference checks pass with the expected clip fraction.

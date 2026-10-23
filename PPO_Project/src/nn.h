@@ -1,6 +1,8 @@
 #ifndef NN_H
 #define NN_H
 
+#include <stdint.h>
+
 #include "rng.h"
 
 /*
@@ -66,6 +68,24 @@ typedef struct {
 int adam_init(Adam *a, int n);
 void adam_free(Adam *a);
 void adam_step(Adam *a, float *params, const float *grads, float lr);
+
+/*
+ * Checkpoint: magic "SPPOCKP1", version, network count, update counter, each network's
+ * layer sizes and parameter count, all parameters (float32), then an FNV-1a 64 checksum
+ * of everything before it. Loading checks length, checksum, shapes, and finiteness before
+ * touching any network. Saving writes a temporary file and renames it into place.
+ */
+enum {
+    CKPT_IO = -1,
+    CKPT_FORMAT = -2,
+    CKPT_SHAPE = -3,
+    CKPT_CHECKSUM = -4,
+    CKPT_NONFINITE = -5,
+};
+
+int checkpoint_save(const char *path, Mlp *const *nets, int n_nets, uint32_t update);
+int checkpoint_load(const char *path, Mlp *const *nets, int n_nets, uint32_t *update);
+const char *checkpoint_error(int code);
 
 /* Scales all gradient groups together so their joint L2 norm is at most max_norm; returns the norm before. */
 float clip_grad_norm(float *const *groups, const int *sizes, int count, float max_norm);

@@ -252,3 +252,173 @@ float clip_grad_norm(float *const *groups, const int *sizes, int count, float ma
     }
     return (float)norm;
 }
+
+#define CKPT_MAGIC "SPPOCKP1"
+#define CKPT_VERSION 1u
+
+static uint64_t fnv1a(uint64_t h, const unsigned char *p, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        h ^= p[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+/* Little-endian u32 at buf + *at, advancing *at. */
+static uint32_t read_u32(const unsigned char *buf, size_t *at) {
+    uint32_t v = (uint32_t)buf[*at] | (uint32_t)buf[*at + 1] << 8 | (uint32_t)buf[*at + 2] << 16 |
+                 (uint32_t)buf[*at + 3] << 24;
+    *at += 4;
+    return v;
+}
+
+static void put_u32(unsigned char *buf, size_t *at, uint32_t v) {
+    for (int b = 0; b < 4; b++) {
+        buf[(*at)++] = (unsigned char)(v >> (8 * b));
+    }
+}
+
+static size_t checkpoint_bytes(Mlp *const *nets, int n_nets) {
+    size_t bytes = 8 + 3 * 4 + (size_t)n_nets * 5 * 4 + 8;
+    for (int k = 0; k < n_nets; k++) {
+        bytes += (size_t)nets[k]->n_params * sizeof(float);
+    }
+    return bytes;
+}
+
+int checkpoint_save(const char *path, Mlp *const *nets, int n_nets, uint32_t update) {
+    size_t bytes = checkpoint_bytes(nets, n_nets);
+    unsigned char *buf = malloc(bytes);
+    if (!buf) {
+        return CKPT_IO;
+    }
+    size_t at = 0;
+    memcpy(buf, CKPT_MAGIC, 8);
+    at += 8;
+    put_u32(buf, &at, CKPT_VERSION);
+    put_u32(buf, &at, (uint32_t)n_nets);
+    put_u32(buf, &at, update);
+    for (int k = 0; k < n_nets; k++) {
+        for (int l = 0; l < 4; l++) {
+            put_u32(buf, &at, (uint32_t)nets[k]->sizes[l]);
+        }
+        put_u32(buf, &at, (uint32_t)nets[k]->n_params);
+    }
+    for (int k = 0; k < n_nets; k++) {
+        size_t n = (size_t)nets[k]->n_params * sizeof(float);
+        memcpy(buf + at, nets[k]->params, n); /* float32 in host order; every supported target is little-endian */
+        at += n;
+    }
+    uint64_t sum = fnv1a(14695981039346656037ULL, buf, at);
+    put_u32(buf, &at, (uint32_t)sum);
+    put_u32(buf, &at, (uint32_t)(sum >> 32));
+
+    char tmp[4096];
+    if (snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int)sizeof tmp) {
+        free(buf);
+        return CKPT_IO;
+    }
+    FILE *f = fopen(tmp, "wb");
+    int ok = f && fwrite(buf, 1, bytes, f) == bytes;
+    ok = (f && fclose(f) == 0) && ok;
+    free(buf);
+    if (!ok || rename(tmp, path) != 0) {
+        remove(tmp);
+        return CKPT_IO;
+    }
+    return 0;
+}
+
+int checkpoint_load(const char *path, Mlp *const *nets, int n_nets, uint32_t *update) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return CKPT_IO;
+    }
+    size_t cap = checkpoint_bytes(nets, n_nets);
+    unsigned char *buf = malloc(cap + 1);
+    if (!buf) {
+        fclose(f);
+        return CKPT_IO;
+    }
+    size_t got = fread(buf, 1, cap + 1, f); /* one extra byte detects trailing data */
+    fclose(f);
+    int rc = 0;
+    size_t at = 8;
+    if (got < 8 + 3 * 4 || memcmp(buf, CKPT_MAGIC, 8) != 0 || read_u32(buf, &at) != CKPT_VERSION) {
+        rc = CKPT_FORMAT;
+        goto done;
+    }
+    uint32_t file_nets = read_u32(buf, &at);
+    uint32_t file_update = read_u32(buf, &at);
+    if (file_nets != (uint32_t)n_nets) {
+        rc = CKPT_SHAPE;
+        goto done;
+    }
+    if (got < 8 + 3 * 4 + (size_t)n_nets * 5 * 4) {
+        rc = CKPT_FORMAT;
+        goto done;
+    }
+    for (int k = 0; k < n_nets; k++) {
+        for (int l = 0; l < 4; l++) {
+            if (read_u32(buf, &at) != (uint32_t)nets[k]->sizes[l]) {
+                rc = CKPT_SHAPE;
+            }
+        }
+        if (read_u32(buf, &at) != (uint32_t)nets[k]->n_params) {
+            rc = CKPT_SHAPE;
+        }
+    }
+    if (rc) {
+        goto done;
+    }
+    if (got != cap) {
+        rc = CKPT_FORMAT;
+        goto done;
+    }
+    uint64_t sum = fnv1a(14695981039346656037ULL, buf, cap - 8);
+    size_t tail = cap - 8;
+    uint64_t stored = read_u32(buf, &tail);
+    stored |= (uint64_t)read_u32(buf, &tail) << 32;
+    if (sum != stored) {
+        rc = CKPT_CHECKSUM;
+        goto done;
+    }
+    for (size_t p = at; p < cap - 8; p += sizeof(float)) {
+        float v;
+        memcpy(&v, buf + p, sizeof v);
+        if (!isfinite(v)) {
+            rc = CKPT_NONFINITE;
+            goto done;
+        }
+    }
+    for (int k = 0; k < n_nets; k++) {
+        size_t n = (size_t)nets[k]->n_params * sizeof(float);
+        memcpy(nets[k]->params, buf + at, n);
+        at += n;
+    }
+    if (update) {
+        *update = file_update;
+    }
+done:
+    free(buf);
+    return rc;
+}
+
+const char *checkpoint_error(int code) {
+    switch (code) {
+    case 0:
+        return "ok";
+    case CKPT_IO:
+        return "cannot read or write the checkpoint file";
+    case CKPT_FORMAT:
+        return "not a checkpoint of this version, or wrong length";
+    case CKPT_SHAPE:
+        return "network count or shapes differ from this build";
+    case CKPT_CHECKSUM:
+        return "checksum mismatch (corrupt file)";
+    case CKPT_NONFINITE:
+        return "contains NaN or infinite weights";
+    default:
+        return "unknown checkpoint error";
+    }
+}
