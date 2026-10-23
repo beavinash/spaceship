@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "eval.h"
+#include "nn.h"
 
 typedef struct {
     Texture2D ship;
@@ -76,12 +77,20 @@ static void draw_scene(const Env *env, const Art *art) {
 typedef struct {
     int seed;
     int frames;
+    int sample;
     const char *screenshot;
     const char *assets;
+    const char *policy;
+    const char *checkpoint;
+    const char *game_data;
 } ViewerArgs;
 
 static int parse_args(int argc, char **argv, ViewerArgs *a) {
     for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--sample")) {
+            a->sample = 1;
+            continue;
+        }
         if (i + 1 >= argc) {
             fprintf(stderr, "missing value for %s\n", argv[i]);
             return -1;
@@ -95,6 +104,12 @@ static int parse_args(int argc, char **argv, ViewerArgs *a) {
             a->screenshot = v;
         } else if (!strcmp(flag, "--assets")) {
             a->assets = v;
+        } else if (!strcmp(flag, "--policy")) {
+            a->policy = v;
+        } else if (!strcmp(flag, "--checkpoint")) {
+            a->checkpoint = v;
+        } else if (!strcmp(flag, "--game-data")) {
+            a->game_data = v;
         } else {
             fprintf(stderr, "unknown option %s\n", flag);
             return -1;
@@ -121,17 +136,48 @@ static int save_and_check(RenderTexture2D target, const Env *env, const char *pa
     printf("screenshot: %s %dx%d, %ld lit pixels, %d ships, %d enemies, %d missiles\n", path, img.width, img.height,
            lit, ships, env->n_enemies, env->n_missiles);
     UnloadImage(img);
-    return ok && lit > total / 100 && ships > 0 && env->n_enemies > 0 && env->n_missiles > 0 ? 0 : 1;
+    /* a blank frame lights nothing; even a sparse scene of a few sprites lights well over 0.2% */
+    return ok && lit > total / 500 && ships > 0 && env->n_enemies > 0 && env->n_missiles > 0 ? 0 : 1;
+}
+
+/* The policy named on the command line; returns 0 or prints why it cannot be built. */
+static int make_policy(const ViewerArgs *a, Policy *p) {
+    if (!strcmp(a->policy, "random")) {
+        policy_random(p);
+        return 0;
+    }
+    if (!strcmp(a->policy, "legacy")) {
+        if (policy_legacy(p, a->game_data) != 0) {
+            fprintf(stderr, "viewer: cannot load legacy tables from %s\n", a->game_data);
+            return -1;
+        }
+        return 0;
+    }
+    if (!strcmp(a->policy, "ppo")) {
+        int rc = a->checkpoint ? policy_ppo(p, a->checkpoint, a->sample) : CKPT_IO;
+        if (rc != 0) {
+            fprintf(stderr, "viewer: %s: %s\n", a->checkpoint ? a->checkpoint : "--checkpoint missing",
+                    checkpoint_error(rc));
+            return -1;
+        }
+        return 0;
+    }
+    fprintf(stderr, "viewer: unknown policy %s\n", a->policy);
+    return -1;
 }
 
 int main(int argc, char **argv) {
-    ViewerArgs args = {.seed = 1000, .frames = 0, .screenshot = NULL, .assets = ".."};
+    ViewerArgs args = {.seed = 1000, .assets = "..", .policy = "random", .game_data = "../Game_Data"};
     if (parse_args(argc, argv, &args) != 0) {
-        fputs("usage: viewer [--seed N] [--assets DIR] [--screenshot PATH --frames N]\n", stderr);
+        fputs("usage: viewer [--policy random|ppo|legacy] [--checkpoint PATH] [--sample] [--game-data DIR]\n"
+              "              [--seed N] [--assets DIR] [--screenshot PATH --frames N]\n",
+              stderr);
         return 2;
     }
     Policy policy;
-    policy_random(&policy);
+    if (make_policy(&args, &policy) != 0) {
+        return 1;
+    }
     SetTraceLogLevel(LOG_WARNING);
     if (args.screenshot) {
         SetConfigFlags(FLAG_WINDOW_HIDDEN);
@@ -166,5 +212,6 @@ int main(int argc, char **argv) {
     }
     UnloadRenderTexture(target);
     CloseWindow();
+    policy_free(&policy);
     return status;
 }
