@@ -223,7 +223,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=escaping` → exit 0; `PASS env_counts_live_enemies_escaping_bottom`
   - regression: `make -C PPO_Project test` → exit 0; `14 tests, 150 checks, 0 failed checks, 0 failed tests` (T006's same-seed check now compares spawn counts, since escapes legitimately remove enemies)
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T013 | P0 | depends: T011 | AC-004 | Step policy decisions with a 4-tick action repeat; done when: one decision advances exactly 4 ticks with the action held.
+- [x] T013 | P0 | depends: T011 | AC-004 | Step policy decisions with a 4-tick action repeat; done when: one decision advances exactly 4 ticks with the action held.
+  - red: `make -C PPO_Project test T=repeats` → exit 2; `tests/test_env.c:361:5: error: call to undeclared function 'env_step'`
+  - green: `make -C PPO_Project test T=repeats` → exit 0; `PASS env_step_repeats_action_for_4_ticks`
+  - regression: `make -C PPO_Project test` → exit 0; `15 tests, 158 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T014 | P0 | depends: T013 | AC-004 | End episodes on team death or the 120 s limit; done when: tests distinguish terminated from truncated flags.
 - [ ] T015 | P0 | depends: T014, T012 | AC-005 | Compute per-ship rewards from configurable event coefficients; done when: a scripted-event fixture yields hand-computed rewards with matching component totals.
 - [ ] T016 | P0 | depends: T014 | AC-006 | Encode ego-centric observations with nearest-first entity slots; done when: tests check length 139, [−1, 1] bounds, ordering, zero padding.

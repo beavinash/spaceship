@@ -179,4 +179,7 @@ Enemy *env_add_enemy(Env *env, int type, float x, float y);
 /* Advance one physics tick, in upstream frame order, with each ship holding its action. */
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]);
 
+/* One policy decision: clear the per-decision events, then hold the actions for action_repeat ticks. */
+void env_step(Env *env, const ShipAction actions[NUM_SHIPS]);
+
 #endif

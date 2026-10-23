@@ -352,3 +352,24 @@ void test_env_counts_live_enemies_escaping_bottom(void) {
     hold(&env, IDLE, IDLE, IDLE, 1);
     CHECK(env.n_enemies == 1 && env.stats.escapes == 0);
 }
+
+void test_env_step_repeats_action_for_4_ticks(void) {
+    Env env;
+    quiet_env(&env);
+    env.events[0].hits = 7; /* stale events from an earlier decision */
+    ShipAction a[NUM_SHIPS] = {{H_LEFT, V_STAY, 1}, IDLE, IDLE};
+    env_step(&env, a);
+    CHECK(env.tick == 4);
+    CHECK(env.decision == 1);
+    CHECK_NEAR(env.ships[0].x, 400.0f - 4.0f * 400.0f / 120.0f, 1e-3);
+    CHECK(env.events[0].hits == 0);
+    CHECK(env.events[0].shots == 1);
+    env_step(&env, a);
+    CHECK(env.tick == 8 && env.decision == 2);
+    CHECK(env.events[0].shots == 0); /* still cooling down; events cover this decision only */
+
+    quiet_env(&env);
+    env.action_repeat = 1;
+    env_step(&env, a);
+    CHECK(env.tick == 1 && env.decision == 1);
+}

@@ -289,3 +289,11 @@ void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
     }
     env->tick++;
 }
+
+void env_step(Env *env, const ShipAction actions[NUM_SHIPS]) {
+    memset(env->events, 0, sizeof env->events);
+    for (int t = 0; t < env->action_repeat; t++) {
+        env_tick(env, actions);
+    }
+    env->decision++;
+}
