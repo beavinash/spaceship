@@ -128,3 +128,49 @@ void test_env_missile_flight_matches_closed_form(void) {
     hold(&env, IDLE, IDLE, IDLE, 1);
     CHECK(env.n_missiles == 0);
 }
+
+void test_env_spawns_seeded_enemies_every_90_ticks(void) {
+    Env env;
+    env_reset(&env, 77u);
+    hold(&env, IDLE, IDLE, IDLE, 89);
+    CHECK(env.stats.spawned == 0);
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.stats.spawned == 1);
+    hold(&env, IDLE, IDLE, IDLE, 89);
+    CHECK(env.stats.spawned == 1);
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.stats.spawned == 2);
+
+    env_reset(&env, 78u);
+    int type_counts[3] = {0, 0, 0};
+    int stats_ok = 1;
+    for (int k = 0; k < 50; k++) {
+        hold(&env, IDLE, IDLE, IDLE, 90);
+        const Enemy *e = &env.enemies[env.n_enemies - 1];
+        const EnemyType *t = &ENEMY_TYPES[e->type];
+        type_counts[e->type]++;
+        stats_ok &= e->health == t->health && e->damage == t->damage && e->accel == t->accel;
+        stats_ok &= e->points == t->points && e->attack_cd_ticks == t->attack_cooldown_ticks;
+        stats_ok &= e->radius == 25.0f && e->dead == 0 && e->attack_cd_left <= 0;
+        stats_ok &= e->x >= 0.0f && e->x <= 802.0f && e->y >= -25.0f && e->y <= -24.0f;
+        stats_ok &= e->id == (uint32_t)(k + 1);
+    }
+    CHECK(stats_ok);
+    CHECK(env.stats.spawned == 50);
+    for (int k = 0; k < 3; k++) {
+        CHECK(type_counts[k] >= 5 && type_counts[k] <= 30);
+    }
+    CHECK(ENEMY_TYPES[0].points == 2 && ENEMY_TYPES[1].points == 4 && ENEMY_TYPES[2].points == 8);
+    CHECK(ENEMY_TYPES[2].attack_cooldown_ticks == 168);
+
+    Env a, b;
+    env_reset(&a, 5u);
+    env_reset(&b, 5u);
+    hold(&a, IDLE, IDLE, IDLE, 900);
+    hold(&b, IDLE, IDLE, IDLE, 900);
+    int same = a.n_enemies == b.n_enemies && a.n_enemies == 10;
+    for (int k = 0; same && k < a.n_enemies; k++) {
+        same &= a.enemies[k].x == b.enemies[k].x && a.enemies[k].type == b.enemies[k].type;
+    }
+    CHECK(same);
+}

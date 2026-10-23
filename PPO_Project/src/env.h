@@ -146,6 +146,8 @@ typedef struct {
     RewardParts parts[NUM_SHIPS];
     int spawned;
     int escapes;
+    int dropped_spawns; /* spawns skipped because every enemy slot was taken */
+    int dropped_shots;  /* shots skipped because every missile slot was taken */
 } EpisodeStats;
 
 typedef struct {

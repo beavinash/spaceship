@@ -51,6 +51,7 @@ static void move_ship(Ship *s, ShipAction a) {
 static void fire_missile(Env *env, int owner) {
     Ship *s = &env->ships[owner];
     if (env->n_missiles >= MAX_MISSILES) {
+        env->stats.dropped_shots++;
         return;
     }
     Missile *m = &env->missiles[env->n_missiles++];
@@ -104,7 +105,41 @@ static void move_missiles(Env *env) {
     }
 }
 
+/* Upstream Aliencraft_Type_N: random type, then random x in [0, 800], entering just above the arena. */
+static void spawn_enemy(Env *env) {
+    int type = (int)pcg32_bounded(&env->rng, 3);
+    float x = (float)pcg32_bounded(&env->rng, ENEMY_SPAWN_MAX_X + 1);
+    if (env->n_enemies >= MAX_ENEMIES) {
+        env->stats.dropped_spawns++;
+        return;
+    }
+    const EnemyType *t = &ENEMY_TYPES[type];
+    Enemy *e = &env->enemies[env->n_enemies++];
+    memset(e, 0, sizeof *e);
+    e->x = x;
+    e->y = -ENEMY_RADIUS;
+    e->vx = ENEMY_START_VX;
+    e->vy = ENEMY_START_VY;
+    e->accel = t->accel;
+    e->health = t->health;
+    e->damage = t->damage;
+    e->radius = ENEMY_RADIUS;
+    e->type = type;
+    e->points = t->points;
+    e->attack_cd_ticks = t->attack_cooldown_ticks;
+    e->id = env->next_enemy_id++;
+    env->stats.spawned++;
+}
+
+static void update_spawner(Env *env) {
+    if (--env->spawn_timer <= 0) {
+        spawn_enemy(env);
+        env->spawn_timer = ENEMY_SPAWN_TICKS;
+    }
+}
+
 void env_tick(Env *env, const ShipAction actions[NUM_SHIPS]) {
+    update_spawner(env);
     for (int i = 0; i < NUM_SHIPS; i++) {
         if (env->ships[i].alive) {
             control_ship(env, i, actions[i]);
