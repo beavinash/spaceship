@@ -402,7 +402,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=edge_ticks` → exit 0; `PASS env_counts_edge_ticks_and_aimed_shots`; the CSV header test (aimed_share, edge_share) and the eval JSON test (edge_share, aimed_shot_share) pass
   - regression: `make -C PPO_Project test` → exit 0; `45 tests, 573 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T052 | P1 | depends: T049 | AC-024 | Default to λ 0.99 with sampled evaluation; done when: a defaults test passes while `eval --greedy` still works.
+- [x] T052 | P1 | depends: T049 | AC-024 | Default to λ 0.99 with sampled evaluation; done when: a defaults test passes while `eval --greedy` still works.
+  - red: `make -C PPO_Project test` → exit 2; `tests/test_eval.c:152:11: error: use of undeclared identifier 'EVAL_SAMPLE_DEFAULT'`
+  - green: `make -C PPO_Project test T=defaults_to_sampled` → exit 0; `PASS eval_defaults_to_sampled_actions`; CLI: default report `"sample": true,`, `--greedy` report `"sample": false,`, manifest `"gamma": 0.99, "lambda": 0.99`
+  - regression: `make -C PPO_Project test` → exit 0; `46 tests, 582 checks, 0 failed checks, 0 failed tests` (T026's λ assertion moved to 0.99)
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T053 | P1 | depends: T051, T052 | AC-024 | Run a 10-minute pilot against random on dev; done when: a pilot report records MQ-3 plus MQ-4 measurements.
 - [ ] T042 | P1 | depends: T031, T036, T053 | AC-018 | Train seed 1 on this Mac for 20 minutes; done when: its run directory holds full metrics plus a selected checkpoint.
 - [x] T045 | P1 | depends: T036 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.

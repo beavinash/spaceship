@@ -26,8 +26,11 @@ void policy_random(Policy *p);
 
 /*
  * Each ship acts through its own actor from a training checkpoint (hidden size read from the file).
- * Greedy (most likely index per head) unless sample is set. Returns 0 or a CKPT_ error.
+ * Samples from the policy (seeded per scenario) or, with sample = 0, takes the most likely index per
+ * head. Sampling is the default: greedy argmax proved unstable for these high-entropy policies.
+ * Returns 0 or a CKPT_ error.
  */
+#define EVAL_SAMPLE_DEFAULT 1
 int policy_ppo(Policy *p, const char *checkpoint, int sample);
 
 /*

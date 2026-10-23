@@ -147,3 +147,39 @@ void test_eval_ppo_checkpoint_report_matches_schema(void) {
         agent_free(&agents[k]);
     }
 }
+
+void test_eval_defaults_to_sampled_actions(void) {
+    CHECK(EVAL_SAMPLE_DEFAULT == 1);
+    Pcg32 rng;
+    pcg32_seed(&rng, 9u, 9u);
+    Agent agents[NUM_SHIPS];
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        CHECK(agent_init(&agents[k], OBS_DIM, 16, &rng) == 0);
+    }
+    Mlp *nets[CHECKPOINT_NETS];
+    ship_agent_nets(agents, nets);
+    CHECK(checkpoint_save("build/test-eval-default.bin", nets, CHECKPOINT_NETS, 1u) == 0);
+    Policy sampled, greedy;
+    CHECK(policy_ppo(&sampled, "build/test-eval-default.bin", EVAL_SAMPLE_DEFAULT) == 0);
+    CHECK(policy_ppo(&greedy, "build/test-eval-default.bin", 0) == 0);
+    CHECK(sampled.sample == 1 && greedy.sample == 0);
+    /* With near-uniform initial heads, sampling moves ships around; greedy repeats one action. */
+    Env env;
+    env_reset(&env, 1000u);
+    Pcg32 a, b;
+    pcg32_seed(&a, 1u, 1u);
+    pcg32_seed(&b, 1u, 1u);
+    int differ = 0;
+    for (int d = 0; d < 50; d++) {
+        ShipAction x[NUM_SHIPS], y[NUM_SHIPS];
+        policy_act(&sampled, &env, &a, x);
+        policy_act(&greedy, &env, &b, y);
+        differ |= x[0].h != y[0].h || x[0].v != y[0].v || x[0].fire != y[0].fire;
+    }
+    CHECK(differ);
+    policy_free(&sampled);
+    policy_free(&greedy);
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        agent_free(&agents[k]);
+    }
+}

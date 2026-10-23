@@ -14,7 +14,7 @@ static void usage(void) {
           "            [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
           "            [--death X] [--escape X] [--ally-share X] [--align X] [--edge X]\n"
-          "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--sample]\n"
+          "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--greedy]\n"
           "           [--game-data DIR (legacy; default ../Game_Data)]\n"
           "           [--split dev|test] [--final]\n"
           "  ppo select --run-dir DIR   (scores DIR's checkpoints on dev; writes selection.json, selected.bin)\n"
@@ -101,15 +101,15 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
 
 static int run_eval(int argc, char **argv, const char *binary) {
     const char *policy = NULL, *split = "dev", *output = NULL, *checkpoint = NULL, *game_data = "../Game_Data";
-    int final = 0, sample = 0;
+    int final = 0, sample = EVAL_SAMPLE_DEFAULT;
     for (int i = 0; i < argc; i++) {
         const char *flag = argv[i];
         if (!strcmp(flag, "--final")) {
             final = 1;
             continue;
         }
-        if (!strcmp(flag, "--sample")) {
-            sample = 1;
+        if (!strcmp(flag, "--greedy")) {
+            sample = 0;
             continue;
         }
         if (i + 1 >= argc) {

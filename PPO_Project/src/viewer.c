@@ -136,8 +136,8 @@ typedef struct {
 
 static int parse_args(int argc, char **argv, ViewerArgs *a) {
     for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "--sample")) {
-            a->sample = 1;
+        if (!strcmp(argv[i], "--greedy")) {
+            a->sample = 0;
             continue;
         }
         if (i + 1 >= argc) {
@@ -216,9 +216,10 @@ static int make_policy(const ViewerArgs *a, Policy *p) {
 }
 
 int main(int argc, char **argv) {
-    ViewerArgs args = {.seed = 1000, .assets = "..", .policy = "random", .game_data = "../Game_Data"};
+    ViewerArgs args = {.seed = 1000, .sample = EVAL_SAMPLE_DEFAULT, .assets = "..", .policy = "random",
+                       .game_data = "../Game_Data"};
     if (parse_args(argc, argv, &args) != 0) {
-        fputs("usage: viewer [--policy random|ppo|legacy] [--checkpoint PATH] [--sample] [--game-data DIR]\n"
+        fputs("usage: viewer [--policy random|ppo|legacy] [--checkpoint PATH] [--greedy] [--game-data DIR]\n"
               "              [--seed N] [--assets DIR] [--screenshot PATH --frames N]\n",
               stderr);
         return 2;

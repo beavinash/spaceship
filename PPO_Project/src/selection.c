@@ -64,7 +64,7 @@ static int copy_file(const char *from, const char *to) {
 
 static int score_candidate(Candidate *c) {
     Policy p;
-    if (policy_ppo(&p, c->path, 0) != 0) {
+    if (policy_ppo(&p, c->path, EVAL_SAMPLE_DEFAULT) != 0) {
         return -1;
     }
     static EpisodeResult res[100];

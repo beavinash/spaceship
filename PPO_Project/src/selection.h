@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* A checkpoint scored on the development scenarios (greedy PPO). */
+/* A checkpoint scored on the development scenarios (sampled PPO, seeded per scenario). */
 typedef struct {
     char path[512];
     uint32_t update;

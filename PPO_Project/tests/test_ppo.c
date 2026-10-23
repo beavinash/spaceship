@@ -228,7 +228,7 @@ void test_ppo_minibatch_epochs_cover_active_samples(void) {
 
     PpoConfig cfg = ppo_config_default();
     CHECK_NEAR(cfg.gamma, 0.99, 1e-7);
-    CHECK_NEAR(cfg.lambda, 0.95, 1e-7);
+    CHECK_NEAR(cfg.lambda, 0.99, 1e-7); /* 0.95 attenuated missile-flight credit to ~3% */
     CHECK_NEAR(cfg.clip, 0.2, 1e-7);
     CHECK(cfg.epochs == 4 && cfg.minibatches == 4);
     cfg.lr = 3e-3f;
