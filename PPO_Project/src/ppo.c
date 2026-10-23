@@ -1,5 +1,6 @@
 #include "ppo.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -105,4 +106,54 @@ void rollout_gae(Rollout *r, const float *last_values, float gamma, float lambda
             r->returns[i] = carry + r->values[i];
         }
     }
+}
+
+double ppo_loss(int b, const float *logits, const float *values, const int *actions, const float *old_logp,
+                const float *adv, const float *ret, float clip, float vf_coef, float ent_coef, float *g_logits,
+                float *g_values, PpoLossStats *stats) {
+    double pg = 0.0, vl = 0.0, ent = 0.0, kl = 0.0, clipped = 0.0;
+    float g_lp[ACTION_LOGITS], g_h[ACTION_LOGITS];
+    const float inv_b = 1.0f / (float)b;
+    for (int n = 0; n < b; n++) {
+        const float *z = logits + (size_t)n * ACTION_LOGITS;
+        const int *a = actions + (size_t)n * ACTION_HEADS;
+        float logp = dist_log_prob(z, a);
+        float log_ratio = logp - old_logp[n];
+        float ratio = expf(log_ratio);
+        float clipped_ratio = ratio < 1.0f - clip ? 1.0f - clip : (ratio > 1.0f + clip ? 1.0f + clip : ratio);
+        float unclipped_term = -adv[n] * ratio;
+        float clipped_term = -adv[n] * clipped_ratio;
+        /* max of the two terms; on a tie (ratio inside the range) the unclipped branch carries the gradient */
+        int use_unclipped = unclipped_term >= clipped_term;
+        pg += use_unclipped ? unclipped_term : clipped_term;
+        float h = dist_entropy(z);
+        ent += h;
+        float err = values[n] - ret[n];
+        vl += 0.5 * (double)err * err;
+        kl += (ratio - 1.0f) - log_ratio;
+        clipped += fabsf(ratio - 1.0f) > clip;
+        if (g_logits) {
+            float d_logp = use_unclipped ? -adv[n] * ratio : 0.0f;
+            dist_log_prob_grad(z, a, g_lp);
+            dist_entropy_grad(z, g_h);
+            float *g = g_logits + (size_t)n * ACTION_LOGITS;
+            for (int k = 0; k < ACTION_LOGITS; k++) {
+                g[k] = (d_logp * g_lp[k] - ent_coef * g_h[k]) * inv_b;
+            }
+        }
+        if (g_values) {
+            g_values[n] = vf_coef * err * inv_b;
+        }
+    }
+    pg /= b;
+    vl /= b;
+    ent /= b;
+    if (stats) {
+        stats->pg_loss = pg;
+        stats->v_loss = vl;
+        stats->entropy = ent;
+        stats->approx_kl = kl / b;
+        stats->clipfrac = clipped / b;
+    }
+    return pg - ent_coef * ent + vf_coef * vl;
 }

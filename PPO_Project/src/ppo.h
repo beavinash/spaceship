@@ -51,4 +51,21 @@ int rollout_active_count(const Rollout *r);
  */
 void rollout_gae(Rollout *r, const float *last_values, float gamma, float lambda);
 
+typedef struct {
+    double pg_loss;
+    double v_loss;
+    double entropy;
+    double approx_kl; /* mean of (r - 1) - log r */
+    double clipfrac;  /* share of samples with |r - 1| > clip */
+} PpoLossStats;
+
+/*
+ * Clipped PPO loss over b samples, with r = exp(logp - old_logp):
+ *   mean(max(-A r, -A clip(r, 1 - c, 1 + c))) - ent_coef * mean(H) + vf_coef * mean(0.5 (V - R)^2).
+ * Writes d loss / d logits (b x ACTION_LOGITS) and d loss / d V unless those pointers are NULL.
+ */
+double ppo_loss(int b, const float *logits, const float *values, const int *actions, const float *old_logp,
+                const float *adv, const float *ret, float clip, float vf_coef, float ent_coef, float *g_logits,
+                float *g_values, PpoLossStats *stats);
+
 #endif

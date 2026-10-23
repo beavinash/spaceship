@@ -283,7 +283,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=gae` → exit 0; `PASS ppo_gae_handles_termination_truncation_masks`
   - regression: `make -C PPO_Project test` → exit 0; `26 tests, 314 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T025 | P0 | depends: T020 | AC-009 | Compute clipped PPO loss gradients for policy, value, entropy terms; done when: finite-difference checks pass with the expected clip fraction.
+- [x] T025 | P0 | depends: T020 | AC-009 | Compute clipped PPO loss gradients for policy, value, entropy terms; done when: finite-difference checks pass with the expected clip fraction.
+  - red: `make -C PPO_Project test T=clipped_loss` → exit 2; `tests/test_ppo.c:96:19: error: call to undeclared function 'ppo_loss'`
+  - green: `make -C PPO_Project test T=clipped_loss` → exit 0; `PASS ppo_clipped_loss_gradients`
+  - regression: `make -C PPO_Project test` → exit 0; `27 tests, 320 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T026 | P0 | depends: T024, T025, T021 | AC-009 | Run shuffled minibatch epochs with per-minibatch advantage normalization; done when: each active sample is visited exactly once per epoch.
 - [ ] T027 | P0 | depends: T026 | AC-010 | Train PPO on a toy target-reaching environment; done when: seed 1 exceeds the documented return threshold within the documented update budget.
 - [ ] T028 | P0 | depends: T027, T017 | AC-011 | Collect vectorized arena rollouts with one network per ship; done when: tests confirm per-ship networks, sample counts, death masks.

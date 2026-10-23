@@ -71,3 +71,62 @@ void test_ppo_gae_handles_termination_truncation_masks(void) {
     CHECK_NEAR(r.returns[rollout_index(&r, 3, 1)], 0.0, 0.0);
     rollout_free(&r);
 }
+
+void test_ppo_clipped_loss_gradients(void) {
+    enum { B = 4 };
+    Pcg32 rng;
+    pcg32_seed(&rng, 17u, 2u);
+    float logits[B * ACTION_LOGITS];
+    for (int k = 0; k < B * ACTION_LOGITS; k++) {
+        logits[k] = 2.0f * pcg32_float(&rng) - 1.0f;
+    }
+    const int actions[B * ACTION_HEADS] = {0, 1, 1, 2, 2, 0, 1, 0, 1, 2, 1, 0};
+    float values[B] = {0.3f, -0.2f, 1.0f, 0.5f};
+    const float ret[B] = {1.0f, 0.0f, 0.5f, -0.5f};
+    const float adv[B] = {1.0f, -1.0f, 1.0f, -0.5f};
+    /* ratio = exp(-offset): 1, 0.61 (clipped, A < 0), 1.65 (clipped, A > 0), 0.90 (inside). */
+    const float offset[B] = {0.0f, 0.5f, -0.5f, 0.1f};
+    float old_logp[B];
+    for (int n = 0; n < B; n++) {
+        old_logp[n] = dist_log_prob(logits + n * ACTION_LOGITS, actions + n * ACTION_HEADS) + offset[n];
+    }
+    const float clip = 0.2f, vf = 0.5f, ent = 0.01f;
+    float g_logits[B * ACTION_LOGITS], g_values[B];
+    PpoLossStats st;
+    double loss = ppo_loss(B, logits, values, actions, old_logp, adv, ret, clip, vf, ent, g_logits, g_values, &st);
+    CHECK_NEAR(st.clipfrac, 0.5, 1e-6);
+    CHECK(st.approx_kl > 0.0);
+    CHECK_NEAR(loss, st.pg_loss - ent * st.entropy + vf * st.v_loss, 1e-6);
+
+    const float eps = 1e-3f;
+    double worst = 0.0;
+    for (int k = 0; k < B * ACTION_LOGITS; k++) {
+        float keep = logits[k];
+        logits[k] = keep + eps;
+        double up = ppo_loss(B, logits, values, actions, old_logp, adv, ret, clip, vf, ent, NULL, NULL, NULL);
+        logits[k] = keep - eps;
+        double down = ppo_loss(B, logits, values, actions, old_logp, adv, ret, clip, vf, ent, NULL, NULL, NULL);
+        logits[k] = keep;
+        worst = fmax(worst, fabs((up - down) / (2.0 * eps) - g_logits[k]));
+    }
+    for (int n = 0; n < B; n++) {
+        float keep = values[n];
+        values[n] = keep + eps;
+        double up = ppo_loss(B, logits, values, actions, old_logp, adv, ret, clip, vf, ent, NULL, NULL, NULL);
+        values[n] = keep - eps;
+        double down = ppo_loss(B, logits, values, actions, old_logp, adv, ret, clip, vf, ent, NULL, NULL, NULL);
+        values[n] = keep;
+        worst = fmax(worst, fabs((up - down) / (2.0 * eps) - g_values[n]));
+    }
+    CHECK(worst < 2e-3);
+    CHECK_NEAR(g_values[0], vf * (0.3 - 1.0) / B, 1e-6);
+
+    /* Clipped samples carry no policy gradient, only the entropy term. */
+    float g_ent[ACTION_LOGITS];
+    dist_entropy_grad(logits + 1 * ACTION_LOGITS, g_ent);
+    double clipped_err = 0.0;
+    for (int k = 0; k < ACTION_LOGITS; k++) {
+        clipped_err = fmax(clipped_err, fabs(g_logits[1 * ACTION_LOGITS + k] + ent * g_ent[k] / B));
+    }
+    CHECK(clipped_err < 1e-6);
+}
