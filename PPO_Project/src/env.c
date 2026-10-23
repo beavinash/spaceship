@@ -84,11 +84,39 @@ static void remove_missile(Env *env, int idx) {
     env->n_missiles--;
 }
 
+static float centre_distance(float ax, float ay, float ar, float bx, float by, float br) {
+    float dx = (bx + br) - (ax + ar);
+    float dy = (by + br) - (ay + ar);
+    return sqrtf(dx * dx + dy * dy);
+}
+
+/*
+ * Upstream Detect_Enemy_Collisions: the missile damages every live enemy it overlaps
+ * (upstream keeps iterating after the first hit), and is spent if it hit anything.
+ */
+static int missile_hits(Env *env, const Missile *mi) {
+    int collided = 0;
+    for (int k = 0; k < env->n_enemies; k++) {
+        Enemy *e = &env->enemies[k];
+        if (e->dead) {
+            continue;
+        }
+        if (centre_distance(mi->x, mi->y, MISSILE_RADIUS, e->x, e->y, e->radius) < MISSILE_RADIUS + e->radius) {
+            e->health -= MISSILE_DAMAGE;
+            env->events[mi->owner].hits++;
+            env->stats.hits[mi->owner]++;
+            collided = 1;
+        }
+    }
+    return collided;
+}
+
 /* Upstream Iterate_Projectiles(Detect_Projectile_Collisions): spent or off-screen missiles leave the list. */
 static void resolve_missiles(Env *env) {
     int m = 0;
     while (m < env->n_missiles) {
-        if (env->missiles[m].y < -MISSILE_RADIUS) {
+        int collided = missile_hits(env, &env->missiles[m]);
+        if (collided || env->missiles[m].y < -MISSILE_RADIUS) {
             remove_missile(env, m);
             continue;
         }

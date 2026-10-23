@@ -207,3 +207,40 @@ void test_env_enemy_zigzag_reverses_in_window(void) {
     CHECK_NEAR(env.enemies[1].vx, 200.0f, 0.0);
     CHECK_NEAR(env.enemies[1].x, 1.0f + 200.0f / 120.0f, 1e-3);
 }
+
+static void place_missile(Env *env, float x, float y, int owner) {
+    Missile *m = &env->missiles[env->n_missiles++];
+    m->x = x;
+    m->y = y;
+    m->vy = 30.0f;
+    m->owner = owner;
+    m->id = env->next_missile_id++;
+}
+
+void test_env_missile_damages_every_overlapping_live_enemy(void) {
+    Env env;
+    quiet_env(&env);
+    env_add_enemy(&env, 2, 100.0f, 300.0f); /* centre (125, 325) */
+    env_add_enemy(&env, 2, 105.0f, 305.0f); /* centre (130, 330) */
+    env_add_enemy(&env, 2, 600.0f, 300.0f); /* far away */
+    env_add_enemy(&env, 2, 102.0f, 302.0f); /* overlapping, but already an explosion */
+    env.enemies[3].dead = 1;
+    place_missile(&env, 117.0f, 317.0f, 1); /* centre (127, 327) */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK_NEAR(env.enemies[0].health, 30.0f, 0.0);
+    CHECK_NEAR(env.enemies[1].health, 30.0f, 0.0);
+    CHECK_NEAR(env.enemies[2].health, 40.0f, 0.0);
+    CHECK_NEAR(env.enemies[3].health, 40.0f, 0.0);
+    CHECK(env.n_missiles == 0);
+    CHECK(env.stats.hits[1] == 2);
+    CHECK(env.events[1].hits == 2);
+    CHECK(env.stats.hits[0] == 0);
+
+    /* A missile just outside 10 + 25 px of every centre keeps flying. */
+    quiet_env(&env);
+    env_add_enemy(&env, 0, 100.0f, 300.0f);           /* centre (125, 325) */
+    place_missile(&env, 115.0f, 300.0f - 35.0f, 0); /* centre (125, 275): 50 px away */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK(env.n_missiles == 1);
+    CHECK_NEAR(env.enemies[0].health, 20.0f, 0.0);
+}

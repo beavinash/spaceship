@@ -198,7 +198,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=zigzag` → exit 0; `PASS env_enemy_zigzag_reverses_in_window` (two wall expectations in the fixture were corrected to the upstream rule: right-wall sticking and in-window jitter)
   - regression: `make -C PPO_Project test` → exit 0; `9 tests, 100 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T008 | P0 | depends: T005, T007 | AC-002 | Apply missile damage to every overlapping live enemy; done when: tests show 10 damage per overlapped enemy with the missile removed.
+- [x] T008 | P0 | depends: T005, T007 | AC-002 | Apply missile damage to every overlapping live enemy; done when: tests show 10 damage per overlapped enemy with the missile removed.
+  - red: `make -C PPO_Project test T=overlapping` → exit 2; `tests/test_env.c:230: CHECK_NEAR(env.enemies[0].health, 30.0f) failed: 40 vs 30`
+  - green: `make -C PPO_Project test T=overlapping` → exit 0; `PASS env_missile_damages_every_overlapping_live_enemy`
+  - regression: `make -C PPO_Project test` → exit 0; `10 tests, 110 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T009 | P0 | depends: T008 | AC-002 | Convert destroyed enemies into upstream explosions credited to the shooter; done when: a kill test asserts radius 50, damage 1, 18-tick cooldown, owner score + points.
 - [ ] T010 | P0 | depends: T009 | AC-002 | Apply contact damage under per-enemy attack cooldowns; done when: overlapping a type-1 enemy for 240 ticks deals exactly 10 damage.
 - [ ] T011 | P0 | depends: T010 | AC-004 | Remove ships from physics once health reaches zero; done when: a dead ship ignores actions, cannot fire, takes no damage.
