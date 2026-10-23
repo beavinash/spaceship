@@ -293,7 +293,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=minibatch_epochs` → exit 0; `PASS ppo_minibatch_epochs_cover_active_samples`
   - regression: `make -C PPO_Project test` → exit 0; `28 tests, 340 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 10 files` after zero-initialising the order buffer; dependency audit: unavailable (no third-party code in the core)
-- [ ] T027 | P0 | depends: T026 | AC-010 | Train PPO on a toy target-reaching environment; done when: seed 1 exceeds the documented return threshold within the documented update budget.
+- [x] T027 | P0 | depends: T026 | AC-010 | Train PPO on a toy target-reaching environment; done when: seed 1 exceeds the documented return threshold within the documented update budget.
+  - red: `make -C PPO_Project test T=toy_` → exit 2; `tests/test_toy.c:2:10: fatal error: 'toy.h' file not found`; first implementation then failed `tests/test_toy.c:46: CHECK(learned >= 0.5) failed` with every seed stuck at exactly -0.400 (a never-fire local optimum), so the toy task gained distance-progress shaping and a hit-rate criterion
+  - green: `make -C PPO_Project test T=toy_` → exit 0; `toy: random -1.212, PPO 1.749, hit rate 1.00 after 150 updates, 6992 episodes` (documented threshold: hit rate >= 0.9 and mean return >= 1.2 within 150 updates, seed 1)
+  - regression: `make -C PPO_Project test` → exit 0; `30 tests, 353 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 12 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T028 | P0 | depends: T027, T017 | AC-011 | Collect vectorized arena rollouts with one network per ship; done when: tests confirm per-ship networks, sample counts, death masks.
 - [ ] T029 | P0 | depends: T028 | AC-012 | Add a `train` command logging per-update CSV metrics; done when: a 2-update smoke run writes every documented column.
 - [ ] T030 | P1 | depends: T029, T022 | AC-012 | Write run manifests with periodic checkpoints; done when: a smoke run directory holds a manifest plus loadable checkpoints.
