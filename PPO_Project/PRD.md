@@ -158,7 +158,11 @@ Review base: e683c7de0594e6108a1189ed00593b6115732f1a
 Sprint branch: feature/ppo-training (from upstream `main` e683c7d)
 Review scope: PPO_Project/
 
-- [ ] T001 | P0 | depends: none | AC-001 | Create `PPO_Project` with a strict-warning C11 Makefile running a seeded PCG32 reference test; done when: `make -C PPO_Project test` passes the PCG32 sequence test.
+- [x] T001 | P0 | depends: none | AC-001 | Create `PPO_Project` with a strict-warning C11 Makefile running a seeded PCG32 reference test; done when: `make -C PPO_Project test` passes the PCG32 sequence test.
+  - red: `make -C PPO_Project test` → exit 2; `tests/test_rng.c:4:10: fatal error: 'rng.h' file not found`
+  - green: `make -C PPO_Project test` → exit 0; `2 tests, 13 checks, 0 failed checks, 0 failed tests`
+  - regression: `make -C PPO_Project test` → exit 0; `2 tests, 13 checks, 0 failed checks, 0 failed tests` (first task; no earlier tests)
+  - scans: `clang --analyze` over src/tests → `clang-analyzer: 0 warnings over 2 files`; dependency audit: unavailable (no third-party code or manifest in the core)
 - [ ] T002 | P0 | depends: T001 | AC-002 | Implement arena reset from upstream ship constants with the required health/ammo; done when: a test asserts three ships at (400+50i, 700) with 200 health, 100 missiles, 400 px/s speed, ready weapons.
 - [ ] T003 | P0 | depends: T002 | AC-002 | Apply factorized movement actions with upstream diagonal normalization plus clamping; done when: one-tick displacement tests match upstream `Control_Spaceship` arithmetic.
 - [ ] T004 | P0 | depends: T003 | AC-002 | Fire missiles through a 30-tick weapon cooldown; done when: holding fire for 90 ticks spawns exactly three missiles.

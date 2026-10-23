@@ -1,0 +1,2 @@
+TEST(pcg32_reference_sequence)
+TEST(pcg32_bounded_and_unit_float)
