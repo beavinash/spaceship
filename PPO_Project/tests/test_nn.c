@@ -74,3 +74,95 @@ void test_nn_dense_gradients_match_finite_differences(void) {
     dense_backward(&d, x, y, B, NULL);
     CHECK_NEAR(gw[0], 2.0f * before, 1e-5);
 }
+
+/* Max |(W^T W or W W^T) - gain^2 I| for a [in][out] matrix, using the smaller Gram matrix. */
+static double orthogonality_error(const float *w, int in, int out, double gain) {
+    int small = in < out ? in : out;
+    double worst = 0.0;
+    for (int a = 0; a < small; a++) {
+        for (int b = 0; b < small; b++) {
+            double dot = 0.0;
+            if (in >= out) {
+                for (int i = 0; i < in; i++) {
+                    dot += (double)w[i * out + a] * w[i * out + b];
+                }
+            } else {
+                for (int o = 0; o < out; o++) {
+                    dot += (double)w[a * out + o] * w[b * out + o];
+                }
+            }
+            worst = fmax(worst, fabs(dot - (a == b ? gain * gain : 0.0)));
+        }
+    }
+    return worst;
+}
+
+static double mlp_loss(Mlp *m, const float *x, int batch, const float *c) {
+    const float *y = mlp_forward(m, x, batch);
+    double loss = 0.0;
+    for (int k = 0; k < batch * m->sizes[3]; k++) {
+        loss += (double)c[k] * y[k];
+    }
+    return loss;
+}
+
+void test_nn_mlp_init_shapes_and_gradients(void) {
+    Pcg32 rng;
+    pcg32_seed(&rng, 5u, 8u);
+    Mlp m;
+    CHECK(mlp_init(&m, 6, 16, 3, 0.01f, &rng) == 0);
+    CHECK(m.n_params == 6 * 16 + 16 + 16 * 16 + 16 + 16 * 3 + 3);
+    CHECK(orthogonality_error(m.layers[0].w, 6, 16, sqrt(2.0)) < 1e-4);
+    CHECK(orthogonality_error(m.layers[1].w, 16, 16, sqrt(2.0)) < 1e-4);
+    CHECK(orthogonality_error(m.layers[2].w, 16, 3, 0.01) < 1e-6);
+    int zero_bias = 1;
+    for (int l = 0; l < 3; l++) {
+        for (int o = 0; o < m.layers[l].out; o++) {
+            zero_bias &= m.layers[l].b[o] == 0.0f;
+        }
+    }
+    CHECK(zero_bias);
+
+    Pcg32 again;
+    pcg32_seed(&again, 5u, 8u);
+    Mlp twin;
+    CHECK(mlp_init(&twin, 6, 16, 3, 0.01f, &again) == 0);
+    CHECK(memcmp(m.params, twin.params, (size_t)m.n_params * sizeof(float)) == 0);
+
+    float x[4 * 6];
+    fill_uniform(x, 4 * 6, &rng, 1.0f);
+    float first[4 * 3];
+    memcpy(first, mlp_forward(&m, x, 4), sizeof first);
+    CHECK(memcmp(first, mlp_forward(&twin, x, 4), sizeof first) == 0);
+    CHECK(memcmp(first, mlp_forward(&m, x, 4), sizeof first) == 0);
+    mlp_free(&twin);
+    mlp_free(&m);
+
+    /* Gradient check through both tanh layers, with a unit-gain output so signals are not tiny. */
+    CHECK(mlp_init(&m, 6, 16, 3, 1.0f, &rng) == 0);
+    float c[4 * 3];
+    fill_uniform(c, 4 * 3, &rng, 1.0f);
+    mlp_zero_grad(&m);
+    mlp_forward(&m, x, 4);
+    mlp_backward(&m, x, c, 4);
+    const float eps = 1e-2f;
+    double worst = 0.0;
+    for (int k = 0; k < m.n_params; k++) {
+        float keep = m.params[k];
+        m.params[k] = keep + eps;
+        double up = mlp_loss(&m, x, 4, c);
+        m.params[k] = keep - eps;
+        double down = mlp_loss(&m, x, 4, c);
+        m.params[k] = keep;
+        double numeric = (up - down) / (2.0 * eps);
+        worst = fmax(worst, fabs(numeric - m.grads[k]) / fmax(1.0, fabs(numeric)));
+    }
+    CHECK(worst < 2e-3);
+    mlp_zero_grad(&m);
+    int cleared = 1;
+    for (int k = 0; k < m.n_params; k++) {
+        cleared &= m.grads[k] == 0.0f;
+    }
+    CHECK(cleared);
+    mlp_free(&m);
+}

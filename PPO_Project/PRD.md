@@ -253,7 +253,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=dense` → exit 0; `PASS nn_dense_gradients_match_finite_differences`
   - regression: `make -C PPO_Project test` → exit 0; `20 tests, 226 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 6 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T019 | P0 | depends: T018 | AC-007 | Build orthogonally initialized tanh actor/critic MLPs; done when: tests check output shapes, init gains, deterministic forward passes.
+- [x] T019 | P0 | depends: T018 | AC-007 | Build orthogonally initialized tanh actor/critic MLPs; done when: tests check output shapes, init gains, deterministic forward passes.
+  - red: `make -C PPO_Project test T=mlp` → exit 2; `tests/test_nn.c:100:24: error: unknown type name 'Mlp'`
+  - green: `make -C PPO_Project test T=mlp` → exit 0; `PASS nn_mlp_init_shapes_and_gradients`
+  - regression: `make -C PPO_Project test` → exit 0; `21 tests, 239 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → first run `clang-analyzer: 1 warnings over 6 files` (uninitialised read in orthogonal init), fixed with calloc → `clang-analyzer: 0 warnings over 6 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T020 | P0 | depends: T019 | AC-007 | Compute factorized 3×3×2 categorical log-probabilities with entropy; done when: hand-computed fixtures plus gradient checks pass.
 - [ ] T021 | P0 | depends: T018 | AC-008 | Implement Adam with global gradient-norm clipping; done when: one step on fixed gradients matches reference values.
 - [ ] T022 | P0 | depends: T019 | AC-008 | Save versioned checkpoints with dimension headers plus checksums; done when: round trips are exact while corrupt or mismatched files are rejected.
