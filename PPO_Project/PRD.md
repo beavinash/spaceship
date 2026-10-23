@@ -365,8 +365,12 @@ Review scope: PPO_Project/
   - scans: `make -C PPO_Project analyze` → exit 0; `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T041 | P1 | depends: T033 | AC-017 | Document build, training, evaluation, viewing in the README; done when: every README command runs as written.
 - [ ] T042 | P1 | depends: T031, T036 | AC-018 | Train seed 1 on this Mac under the shared decision budget; done when: its run directory holds full metrics plus a selected checkpoint.
-- [ ] T045 | P1 | depends: T042 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.
-- [ ] T046 | P1 | depends: T045 | AC-018 | Train seeds 2–3 in parallel Modal CPU containers capped at 10 min each; done when: both returned archives hold full metrics plus a selected checkpoint.
+- [x] T045 | P1 | depends: T036 | AC-020 | Add a container training script that runs locally before Modal; done when: a local run builds, tests, smoke-trains, trains, archives one seed.
+  - red: `sh scripts/container_train.sh build/container-check 7 4096 30` → exit 127; `sh: scripts/container_train.sh: No such file or directory`
+  - green: `sh scripts/container_train.sh runs/container-check 7 4096 30 --checkpoint-every 1` → exit 0; `40 tests, 533 checks, 0 failed checks, 0 failed tests`, `smoke: ok`, `"status":"completed"`, `archive: runs/container-check.tar.gz (3.0M)` holding manifest, metrics, checkpoints, selection, logs
+  - regression: the script itself runs the full suite: `40 tests, 533 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings` (shell script not covered; no shellcheck installed)
+- [ ] T046 | P1 | depends: T045, T042 | AC-018 | Train seeds 2–3 in parallel Modal CPU containers capped at 10 min each; done when: both returned archives hold full metrics plus a selected checkpoint.
 - [ ] T043 | P1 | depends: T046, T035 | AC-019 | Evaluate selected checkpoints once on test seeds against baselines; done when: the report records MQ-1 plus MQ-2 as pass or fail.
 
 ## 6. Open questions
