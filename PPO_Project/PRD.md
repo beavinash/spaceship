@@ -163,7 +163,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test` → exit 0; `2 tests, 13 checks, 0 failed checks, 0 failed tests`
   - regression: `make -C PPO_Project test` → exit 0; `2 tests, 13 checks, 0 failed checks, 0 failed tests` (first task; no earlier tests)
   - scans: `clang --analyze` over src/tests → `clang-analyzer: 0 warnings over 2 files`; dependency audit: unavailable (no third-party code or manifest in the core)
-- [ ] T002 | P0 | depends: T001 | AC-002 | Implement arena reset from upstream ship constants with the required health/ammo; done when: a test asserts three ships at (400+50i, 700) with 200 health, 100 missiles, 400 px/s speed, ready weapons.
+- [x] T002 | P0 | depends: T001 | AC-002 | Implement arena reset from upstream ship constants with the required health/ammo; done when: a test asserts three ships at (400+50i, 700) with 200 health, 100 missiles, 400 px/s speed, ready weapons.
+  - red: `make -C PPO_Project test` → exit 2; `tests/test_env.c:4:10: fatal error: 'env.h' file not found`
+  - green: `make -C PPO_Project test T=env_reset` → exit 0; `PASS env_reset_matches_upstream_ships`
+  - regression: `make -C PPO_Project test` → exit 0; `3 tests, 40 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T003 | P0 | depends: T002 | AC-002 | Apply factorized movement actions with upstream diagonal normalization plus clamping; done when: one-tick displacement tests match upstream `Control_Spaceship` arithmetic.
 - [ ] T004 | P0 | depends: T003 | AC-002 | Fire missiles through a 30-tick weapon cooldown; done when: holding fire for 90 ticks spawns exactly three missiles.
 - [ ] T044 | P0 | depends: T004 | AC-002 | Limit each ship to 100 missiles per episode without refill; done when: holding fire for 3,300 ticks spawns exactly 100 missiles.
