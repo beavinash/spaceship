@@ -203,7 +203,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=overlapping` → exit 0; `PASS env_missile_damages_every_overlapping_live_enemy`
   - regression: `make -C PPO_Project test` → exit 0; `10 tests, 110 checks, 0 failed checks, 0 failed tests`
   - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T009 | P0 | depends: T008 | AC-002 | Convert destroyed enemies into upstream explosions credited to the shooter; done when: a kill test asserts radius 50, damage 1, 18-tick cooldown, owner score + points.
+- [x] T009 | P0 | depends: T008 | AC-002 | Convert destroyed enemies into upstream explosions credited to the shooter; done when: a kill test asserts radius 50, damage 1, 18-tick cooldown, owner score + points.
+  - red: `make -C PPO_Project test T=explosion` → exit 2; `tests/test_env.c:257: CHECK(e->dead == 1) failed`
+  - green: `make -C PPO_Project test T=explosion` → exit 0; `PASS env_kill_becomes_explosion_credited_to_shooter`
+  - regression: `make -C PPO_Project test` → exit 0; `11 tests, 125 checks, 0 failed checks, 0 failed tests`
+  - scans: `clang --analyze` → `clang-analyzer: 0 warnings over 4 files`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T010 | P0 | depends: T009 | AC-002 | Apply contact damage under per-enemy attack cooldowns; done when: overlapping a type-1 enemy for 240 ticks deals exactly 10 damage.
 - [ ] T011 | P0 | depends: T010 | AC-004 | Remove ships from physics once health reaches zero; done when: a dead ship ignores actions, cannot fire, takes no damage.
 - [ ] T012 | P0 | depends: T007 | AC-002 | Count live enemies escaping below the arena; done when: the counter rises once per live enemy crossing y > 1000, never for explosions.

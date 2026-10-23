@@ -244,3 +244,29 @@ void test_env_missile_damages_every_overlapping_live_enemy(void) {
     CHECK(env.n_missiles == 1);
     CHECK_NEAR(env.enemies[0].health, 20.0f, 0.0);
 }
+
+void test_env_kill_becomes_explosion_credited_to_shooter(void) {
+    Env env;
+    quiet_env(&env);
+    env_add_enemy(&env, 0, 100.0f, 300.0f); /* centre (125, 325) */
+    env.enemies[0].health = 10.0f;
+    place_missile(&env, 117.0f, 317.0f, 2); /* kills it */
+    place_missile(&env, 118.0f, 318.0f, 0); /* same spot, but the enemy is already an explosion */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    const Enemy *e = &env.enemies[0];
+    CHECK(e->dead == 1);
+    CHECK_NEAR(e->radius, 50.0f, 0.0);
+    CHECK_NEAR(e->damage, 1.0f, 0.0);
+    CHECK(e->attack_cd_ticks == 18);
+    CHECK_NEAR(e->accel, -1.0f, 0.0);
+    CHECK_NEAR(e->vx, 1.0f, 0.0);
+    CHECK_NEAR(e->vy, 100.0f - 1.0f / 120.0f, 1e-4);
+    CHECK_NEAR(e->x, 100.0f + 1.0f / 120.0f, 1e-4);
+    CHECK(env.stats.score[2] == 2);
+    CHECK(env.stats.kills[2] == 1);
+    CHECK(env.events[2].kills == 1 && env.events[2].kill_points == 2);
+    CHECK(env.events[0].ally_kill_points == 2 && env.events[1].ally_kill_points == 2);
+    CHECK(env.events[2].ally_kill_points == 0);
+    CHECK(env.stats.hits[2] == 1 && env.stats.hits[0] == 0);
+    CHECK(env.n_missiles == 1 && env.missiles[0].owner == 0);
+}

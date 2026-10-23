@@ -90,6 +90,26 @@ static float centre_distance(float ax, float ay, float ar, float bx, float by, f
     return sqrtf(dx * dx + dy * dy);
 }
 
+/* Upstream kill branch: the wreck keeps its top-left corner and drifts down as a 50 px explosion. */
+static void explode(Env *env, Enemy *e, int shooter) {
+    e->dead = 1;
+    e->vx = EXPLOSION_VX;
+    e->vy = EXPLOSION_VY;
+    e->accel = EXPLOSION_ACCEL;
+    e->radius = EXPLOSION_RADIUS;
+    e->damage = EXPLOSION_DAMAGE;
+    e->attack_cd_ticks = EXPLOSION_COOLDOWN_TICKS; /* the remaining cooldown carries over, as upstream */
+    env->stats.score[shooter] += e->points;
+    env->stats.kills[shooter]++;
+    env->events[shooter].kills++;
+    env->events[shooter].kill_points += e->points;
+    for (int i = 0; i < NUM_SHIPS; i++) {
+        if (i != shooter) {
+            env->events[i].ally_kill_points += e->points;
+        }
+    }
+}
+
 /*
  * Upstream Detect_Enemy_Collisions: the missile damages every live enemy it overlaps
  * (upstream keeps iterating after the first hit), and is spent if it hit anything.
@@ -106,6 +126,9 @@ static int missile_hits(Env *env, const Missile *mi) {
             env->events[mi->owner].hits++;
             env->stats.hits[mi->owner]++;
             collided = 1;
+            if (e->health <= 0.0f) {
+                explode(env, e, mi->owner);
+            }
         }
     }
     return collided;
