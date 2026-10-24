@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-09-29T04:35:50.846207+00:00",
+  "source": {
+    "commit": "e22d44f4be4727131f573c35fe30cb406a0d88c6",
+    "dirty": true,
+    "files": {
+      "config/spaceship.ini": "507bad6e703c04aadd93f0b6d93accd3623da2a396a543c41eac49577c667786",
+      "native/checkpoint.c": "2a45eb0d2cbdc0b178e747993cef311ba7cb6ceef5d9b6dbca93945ffb59e53d",
+      "native/evaluate.c": "1f045f576656278fe3c5685dff61de77509c131b8d7bc3b00fe600e54f1ffaf5",
+      "native/spaceship.h": "cc054f53e58c265209f1344ba7b128af27b9b6d59947165ed8b584283e8aa33e",
+      "native/spaceship_bots.c": "fa5f52ba98cd544e180cd7325cd4d36307738cddfd328362a421365fda62abbc",
+      "native/spaceship_bots.h": "a14d84401140eb3f87c11156ebb708e8d41b9c8f121710bab7caa3ffa96662bd",
+      "native/spaceship_core.c": "89e02e1ba7ddc2cf106eca4b31b078af524e42745bd516c81c2802969676b876",
+      "native/spaceship_core.h": "3675874d1174d80ed89f59113081cb12f09fe7f227c2ea6144d53cb736337361",
+      "native/spaceship_eval.h": "c157d2368defed2a63cc162f4342bc553abe04e811637bb6b67311bfcfe2daa1",
+      "native/spaceship_native.h": "cf4e8fc09355068bca629bbb7e926a66f643bfb4307ae79c8834f6f3b375eca1",
+      "native/spaceship_ppo.h": "8a6e581e5a72997da1416277cdc3ed66220a965068a88c47ec4a79d21722b21e",
+      "patches/pufferl-spaceship.patch": "c9b376111f50ba87138f49c8260116e8ef1d953cc14708c708c9e5c90a6ccc1e",
+      "scripts/check_external.py": "f404dda2624cb06e487ecbd8c3508f6be21d152a845519e62eb90956aa7aeeaf",
+      "scripts/evaluate.py": "dc58b417869b5d214287f7abc4e2b2cf34118e498501165312bf147f2ce58dd5",
+      "scripts/ppo_config.py": "737063c92e7f0965fb2642c935a7389e90333e8d6dc17c701a3bf4636e3bec61",
+      "scripts/prepare_pufferlib.py": "3596ecb4959119f2438f8735a10b5f52a6dedf8c7894b4cb3ccae3dc95ade10f",
+      "scripts/run_manifest.py": "76b1e334f7fccf86cd3222356b8d98c37e2a4b9217e5dd07ab5b3c643f50900a"
+    }
+  },
+  "upstream": {
+    "archive_sha256": "d29c8b6f8a80f0ed721f489603cdcb5f2988c4bfb60c5a3039ade415a3dfa1ff",
+    "archive_url": "https://codeload.github.com/PufferAI/PufferLib/tar.gz/6ffa5b10dbbbe4d1e8288367c7d9d3acd3bad4a2",
+    "branch_at_inspection": "5.0",
+    "commit": "6ffa5b10dbbbe4d1e8288367c7d9d3acd3bad4a2",
+    "external_only": true,
+    "inspected_on": "2026-09-16",
+    "license": "MIT",
+    "pufferl_source_sha256": "046688e753bf5b3c5485c0e061abeb8a19606db4556b83e243466fc3274d058f",
+    "repository": "https://github.com/PufferAI/PufferLib",
+    "source_files": {
+      "LICENSE": "24dae53fbe9da4b15693499b043783c7572b894ac9a5dbc6889856a409c24dee",
+      "build.sh": "3682a835ef989391b11ab53cc02bede0551b46d9302e32e2f98758d598cb879a",
+      "config/breakout.ini": "ba73db9127cbe9222e7dffec14399cd132065e9cf4a858e58ac553c62d847f17",
+      "config/default.ini": "7f493977f49f2537a59c18c2a283f062e5d6063d9e130c2d15f6be075cda1084",
+      "ocean/breakout/breakout.h": "8b7f025ee65a93295e311b8942dcc6bb4239d80de21dc5d381ec5ddab8840d34",
+      "src/algo.cu": "beb55f848076b6e089b015cf90970bb0d7a38290aa6e1ff74c961d9d4e1471f1",
+      "src/constellation.c": "deda12600fb99755994dcb0a9b84c442dac76259b15910eea83e398150c1f6c4",
+      "src/ini.h": "cd4c83ba12ba40a7bef03ad810246cc0a5880f81e8566f6ac5a089b5c598859f",
+      "src/ocean.cu": "511ea7c7c516f3fa658eb6e55f3b4b7204b467d0ce1c816b152ed90f10c5f7ff",
+      "src/protein.cu": "7127fe4fa3e9b0ab76ae0b8a4703357318366b1292f835f02b23bd98a6c90538",
+      "src/puffercpu.c": "6bbcd2d5f37e133972f9bb6df45e3412b8b856893c23764e1ce77582550a7adf",
+      "src/pufferenv.h": "3324a670791e2b3e46cbe7d10d9233d52fbc258e0d7e37d5b0c470e580de880c",
+      "src/pufferl.cu": "046688e753bf5b3c5485c0e061abeb8a19606db4556b83e243466fc3274d058f"
+    }
+  },
+  "configuration": {
+    "base": {
+      "env_name": "spaceship",
+      "async": 0,
+      "reset_every_horizon": 0,
+      "cudagraphs": -1,
+      "seed": 11,
+      "checkpoint_interval": 1
+    },
+    "vec": {
+      "total_agents": 192,
+      "num_buffers": 1,
+      "num_threads": 4,
+      "num_policies": 1,
+      "hist_policy_percent": 0
+    },
+    "selfplay": {
+      "enabled": 0
+    },
+    "env": {
+      "num_agents": 3,
+      "seed": 11,
+      "wave_size": 200,
+      "spawn_interval_ticks": 108,
+      "drain_ticks": 1800,
+      "frame_skip": 4,
+      "reward_kill": 1,
+      "reward_escape": -2,
+      "reward_damage": -0.02,
+      "reward_death": -1
+    },
+    "policy": {
+      "hidden_size": 64,
+      "num_layers": 2
+    },
+    "train": {
+      "gpus": 1,
+      "total_timesteps": 49152,
+      "learning_rate": 0.001,
+      "gamma": 0.99,
+      "gae_lambda": 0.95,
+      "replay_ratio": 2,
+      "clip_coef": 0.2,
+      "ent_coef": 0.01,
+      "minibatch_size": 4096,
+      "horizon": 64,
+      "vtrace": 0
+    }
+  },
+  "configuration_sha256": "0cbeb50f9ed77e7588c34b56a18049efd4c7b68c38974848a77cb17a527a9c86",
+  "geometry": {
+    "arenas": 64,
+    "world_decisions_per_update": 4096,
+    "agent_slots_per_update": 12288,
+    "updates": 4,
+    "optimizer_steps_per_update": 6,
+    "precision": "float32",
+    "self_play": false
+  },
+  "checkpoint": {
+    "path": "/Users/avi/Developer/spaceship/artifacts/untrained-19.bin",
+    "sha256": "03c7c1f5666aaa7d20ce7a3e1b2fde38f16a52a14c54f91156694b0cccc22320",
+    "kind": "untrained",
+    "bytes": 755200,
+    "format": "native-fp32-weight-snapshot",
+    "exact_optimizer_resume": false
+  },
+  "counters": {
+    "physics_ticks": null,
+    "world_decisions": null,
+    "agent_slots": null,
+    "active_decisions": null,
+    "ppo_updates": null,
+    "optimizer_steps": null,
+    "wall_seconds": null
+  }
+}

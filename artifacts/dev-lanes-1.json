@@ -1,0 +1,808 @@
+{
+  "schema_version": 1,
+  "policy": "lanes",
+  "trained": false,
+  "scenario_split": "dev",
+  "scenario_seeds": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1004,
+    1005,
+    1006,
+    1007,
+    1008,
+    1009,
+    1010,
+    1011,
+    1012,
+    1013,
+    1014,
+    1015,
+    1016,
+    1017,
+    1018,
+    1019
+  ],
+  "rules": {
+    "ships": 1,
+    "wave_size": 200,
+    "spawn_interval_ticks": 108,
+    "drain_ticks": 1800,
+    "frame_skip": 4,
+    "reward": [
+      1,
+      -2,
+      -0.02,
+      -1
+    ],
+    "schema": "spaceship-v1-2554"
+  },
+  "rules_sha256": "3f0c951eff5328c3a63023313b31ec6f0609ba77cb1f97c480e2165bdb4655b9",
+  "action_mode": "deterministic_script",
+  "episodes": [
+    {
+      "seed": 1000,
+      "action_seed": 2246822275,
+      "scheduled": 200,
+      "spawned": 81,
+      "killed": 68,
+      "escaped": 4,
+      "unresolved": 9,
+      "unspawned": 119,
+      "score": 346,
+      "failure_fraction": 0.659999967,
+      "escape_fraction": 0.02,
+      "survivors": 0,
+      "physics_ticks": 8781,
+      "duration_seconds": 73.175,
+      "world_decisions": 2196,
+      "agent_slots": 2196,
+      "active_decisions": 2196,
+      "terminal_reason": 1,
+      "episode_return": 58.0000001,
+      "reward_components": {
+        "kills": 68,
+        "escapes": -8,
+        "damage": -0.999999974,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 68,
+          "assists": 0,
+          "damage": 1265
+        }
+      ]
+    },
+    {
+      "seed": 1001,
+      "action_seed": 2246822274,
+      "scheduled": 200,
+      "spawned": 92,
+      "killed": 84,
+      "escaped": 3,
+      "unresolved": 5,
+      "unspawned": 108,
+      "score": 382,
+      "failure_fraction": 0.580000043,
+      "escape_fraction": 0.015,
+      "survivors": 0,
+      "physics_ticks": 9979,
+      "duration_seconds": 83.1583333,
+      "world_decisions": 2495,
+      "agent_slots": 2495,
+      "active_decisions": 2495,
+      "terminal_reason": 1,
+      "episode_return": 76.0000002,
+      "reward_components": {
+        "kills": 84,
+        "escapes": -6,
+        "damage": -0.999999978,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 84,
+          "assists": 0,
+          "damage": 1405
+        }
+      ]
+    },
+    {
+      "seed": 1002,
+      "action_seed": 2246822273,
+      "scheduled": 200,
+      "spawned": 46,
+      "killed": 40,
+      "escaped": 1,
+      "unresolved": 5,
+      "unspawned": 154,
+      "score": 202,
+      "failure_fraction": 0.800000012,
+      "escape_fraction": 0.005,
+      "survivors": 0,
+      "physics_ticks": 4995,
+      "duration_seconds": 41.625,
+      "world_decisions": 1249,
+      "agent_slots": 1249,
+      "active_decisions": 1249,
+      "terminal_reason": 1,
+      "episode_return": 36.0000001,
+      "reward_components": {
+        "kills": 40,
+        "escapes": -2,
+        "damage": -0.999999981,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 40,
+          "assists": 0,
+          "damage": 725
+        }
+      ]
+    },
+    {
+      "seed": 1003,
+      "action_seed": 2246822272,
+      "scheduled": 200,
+      "spawned": 73,
+      "killed": 65,
+      "escaped": 1,
+      "unresolved": 7,
+      "unspawned": 127,
+      "score": 308,
+      "failure_fraction": 0.675000012,
+      "escape_fraction": 0.005,
+      "survivors": 0,
+      "physics_ticks": 7960,
+      "duration_seconds": 66.3333333,
+      "world_decisions": 1990,
+      "agent_slots": 1990,
+      "active_decisions": 1990,
+      "terminal_reason": 1,
+      "episode_return": 61.0000002,
+      "reward_components": {
+        "kills": 65,
+        "escapes": -2,
+        "damage": -0.999999955,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 65,
+          "assists": 0,
+          "damage": 1115
+        }
+      ]
+    },
+    {
+      "seed": 1004,
+      "action_seed": 2246822279,
+      "scheduled": 200,
+      "spawned": 63,
+      "killed": 56,
+      "escaped": 3,
+      "unresolved": 4,
+      "unspawned": 137,
+      "score": 256,
+      "failure_fraction": 0.720000029,
+      "escape_fraction": 0.015,
+      "survivors": 0,
+      "physics_ticks": 6841,
+      "duration_seconds": 57.0083333,
+      "world_decisions": 1711,
+      "agent_slots": 1711,
+      "active_decisions": 1711,
+      "terminal_reason": 1,
+      "episode_return": 48.0000002,
+      "reward_components": {
+        "kills": 56,
+        "escapes": -6,
+        "damage": -0.999999981,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 56,
+          "assists": 0,
+          "damage": 950
+        }
+      ]
+    },
+    {
+      "seed": 1005,
+      "action_seed": 2246822278,
+      "scheduled": 200,
+      "spawned": 64,
+      "killed": 53,
+      "escaped": 5,
+      "unresolved": 6,
+      "unspawned": 136,
+      "score": 236,
+      "failure_fraction": 0.735000014,
+      "escape_fraction": 0.025,
+      "survivors": 0,
+      "physics_ticks": 6941,
+      "duration_seconds": 57.8416667,
+      "world_decisions": 1736,
+      "agent_slots": 1736,
+      "active_decisions": 1736,
+      "terminal_reason": 1,
+      "episode_return": 41.0000002,
+      "reward_components": {
+        "kills": 53,
+        "escapes": -10,
+        "damage": -0.999999974,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 53,
+          "assists": 0,
+          "damage": 955
+        }
+      ]
+    },
+    {
+      "seed": 1006,
+      "action_seed": 2246822277,
+      "scheduled": 200,
+      "spawned": 89,
+      "killed": 85,
+      "escaped": 0,
+      "unresolved": 4,
+      "unspawned": 111,
+      "score": 380,
+      "failure_fraction": 0.574999988,
+      "escape_fraction": 0,
+      "survivors": 0,
+      "physics_ticks": 9646,
+      "duration_seconds": 80.3833333,
+      "world_decisions": 2412,
+      "agent_slots": 2412,
+      "active_decisions": 2412,
+      "terminal_reason": 1,
+      "episode_return": 83.0000002,
+      "reward_components": {
+        "kills": 85,
+        "escapes": 0,
+        "damage": -0.999999985,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 85,
+          "assists": 0,
+          "damage": 1375
+        }
+      ]
+    },
+    {
+      "seed": 1007,
+      "action_seed": 2246822276,
+      "scheduled": 200,
+      "spawned": 90,
+      "killed": 84,
+      "escaped": 1,
+      "unresolved": 5,
+      "unspawned": 110,
+      "score": 402,
+      "failure_fraction": 0.580000043,
+      "escape_fraction": 0.005,
+      "survivors": 0,
+      "physics_ticks": 9805,
+      "duration_seconds": 81.7083333,
+      "world_decisions": 2452,
+      "agent_slots": 2452,
+      "active_decisions": 2452,
+      "terminal_reason": 1,
+      "episode_return": 80.0000002,
+      "reward_components": {
+        "kills": 84,
+        "escapes": -2,
+        "damage": -0.999999978,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 84,
+          "assists": 0,
+          "damage": 1475
+        }
+      ]
+    },
+    {
+      "seed": 1008,
+      "action_seed": 2246822299,
+      "scheduled": 200,
+      "spawned": 38,
+      "killed": 31,
+      "escaped": 1,
+      "unresolved": 6,
+      "unspawned": 162,
+      "score": 150,
+      "failure_fraction": 0.845000029,
+      "escape_fraction": 0.005,
+      "survivors": 0,
+      "physics_ticks": 4137,
+      "duration_seconds": 34.475,
+      "world_decisions": 1035,
+      "agent_slots": 1035,
+      "active_decisions": 1035,
+      "terminal_reason": 1,
+      "episode_return": 27.0000001,
+      "reward_components": {
+        "kills": 31,
+        "escapes": -2,
+        "damage": -0.999999981,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 31,
+          "assists": 0,
+          "damage": 580
+        }
+      ]
+    },
+    {
+      "seed": 1009,
+      "action_seed": 2246822298,
+      "scheduled": 200,
+      "spawned": 84,
+      "killed": 75,
+      "escaped": 2,
+      "unresolved": 7,
+      "unspawned": 116,
+      "score": 376,
+      "failure_fraction": 0.625,
+      "escape_fraction": 0.01,
+      "survivors": 0,
+      "physics_ticks": 9094,
+      "duration_seconds": 75.7833333,
+      "world_decisions": 2274,
+      "agent_slots": 2274,
+      "active_decisions": 2274,
+      "terminal_reason": 1,
+      "episode_return": 69.0000002,
+      "reward_components": {
+        "kills": 75,
+        "escapes": -4,
+        "damage": -0.999999974,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 75,
+          "assists": 0,
+          "damage": 1325
+        }
+      ]
+    },
+    {
+      "seed": 1010,
+      "action_seed": 2246822297,
+      "scheduled": 200,
+      "spawned": 84,
+      "killed": 75,
+      "escaped": 3,
+      "unresolved": 6,
+      "unspawned": 116,
+      "score": 356,
+      "failure_fraction": 0.625,
+      "escape_fraction": 0.015,
+      "survivors": 0,
+      "physics_ticks": 9107,
+      "duration_seconds": 75.8916667,
+      "world_decisions": 2277,
+      "agent_slots": 2277,
+      "active_decisions": 2277,
+      "terminal_reason": 1,
+      "episode_return": 67.0000002,
+      "reward_components": {
+        "kills": 75,
+        "escapes": -6,
+        "damage": -0.999999959,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 75,
+          "assists": 0,
+          "damage": 1305
+        }
+      ]
+    },
+    {
+      "seed": 1011,
+      "action_seed": 2246822296,
+      "scheduled": 200,
+      "spawned": 55,
+      "killed": 50,
+      "escaped": 0,
+      "unresolved": 5,
+      "unspawned": 145,
+      "score": 222,
+      "failure_fraction": 0.75,
+      "escape_fraction": 0,
+      "survivors": 0,
+      "physics_ticks": 5963,
+      "duration_seconds": 49.6916667,
+      "world_decisions": 1491,
+      "agent_slots": 1491,
+      "active_decisions": 1491,
+      "terminal_reason": 1,
+      "episode_return": 48.0000002,
+      "reward_components": {
+        "kills": 50,
+        "escapes": 0,
+        "damage": -0.99999997,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 50,
+          "assists": 0,
+          "damage": 805
+        }
+      ]
+    },
+    {
+      "seed": 1012,
+      "action_seed": 2246822303,
+      "scheduled": 200,
+      "spawned": 72,
+      "killed": 64,
+      "escaped": 2,
+      "unresolved": 6,
+      "unspawned": 128,
+      "score": 294,
+      "failure_fraction": 0.680000007,
+      "escape_fraction": 0.01,
+      "survivors": 0,
+      "physics_ticks": 7813,
+      "duration_seconds": 65.1083333,
+      "world_decisions": 1954,
+      "agent_slots": 1954,
+      "active_decisions": 1954,
+      "terminal_reason": 1,
+      "episode_return": 58.0000002,
+      "reward_components": {
+        "kills": 64,
+        "escapes": -4,
+        "damage": -0.999999978,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 64,
+          "assists": 0,
+          "damage": 1085
+        }
+      ]
+    },
+    {
+      "seed": 1013,
+      "action_seed": 2246822302,
+      "scheduled": 200,
+      "spawned": 35,
+      "killed": 26,
+      "escaped": 3,
+      "unresolved": 6,
+      "unspawned": 165,
+      "score": 142,
+      "failure_fraction": 0.870000005,
+      "escape_fraction": 0.015,
+      "survivors": 0,
+      "physics_ticks": 3814,
+      "duration_seconds": 31.7833333,
+      "world_decisions": 954,
+      "agent_slots": 954,
+      "active_decisions": 954,
+      "terminal_reason": 1,
+      "episode_return": 18.0000001,
+      "reward_components": {
+        "kills": 26,
+        "escapes": -6,
+        "damage": -0.999999966,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 26,
+          "assists": 0,
+          "damage": 545
+        }
+      ]
+    },
+    {
+      "seed": 1014,
+      "action_seed": 2246822301,
+      "scheduled": 200,
+      "spawned": 69,
+      "killed": 62,
+      "escaped": 1,
+      "unresolved": 6,
+      "unspawned": 131,
+      "score": 282,
+      "failure_fraction": 0.689999998,
+      "escape_fraction": 0.005,
+      "survivors": 0,
+      "physics_ticks": 7521,
+      "duration_seconds": 62.675,
+      "world_decisions": 1881,
+      "agent_slots": 1881,
+      "active_decisions": 1881,
+      "terminal_reason": 1,
+      "episode_return": 58.0000001,
+      "reward_components": {
+        "kills": 62,
+        "escapes": -2,
+        "damage": -0.999999974,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 62,
+          "assists": 0,
+          "damage": 1045
+        }
+      ]
+    },
+    {
+      "seed": 1015,
+      "action_seed": 2246822300,
+      "scheduled": 200,
+      "spawned": 36,
+      "killed": 30,
+      "escaped": 1,
+      "unresolved": 5,
+      "unspawned": 164,
+      "score": 156,
+      "failure_fraction": 0.850000024,
+      "escape_fraction": 0.005,
+      "survivors": 0,
+      "physics_ticks": 3919,
+      "duration_seconds": 32.6583333,
+      "world_decisions": 980,
+      "agent_slots": 980,
+      "active_decisions": 980,
+      "terminal_reason": 1,
+      "episode_return": 26.0000002,
+      "reward_components": {
+        "kills": 30,
+        "escapes": -2,
+        "damage": -0.99999997,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 30,
+          "assists": 0,
+          "damage": 560
+        }
+      ]
+    },
+    {
+      "seed": 1016,
+      "action_seed": 2246822291,
+      "scheduled": 200,
+      "spawned": 122,
+      "killed": 108,
+      "escaped": 7,
+      "unresolved": 7,
+      "unspawned": 78,
+      "score": 516,
+      "failure_fraction": 0.459999979,
+      "escape_fraction": 0.035,
+      "survivors": 0,
+      "physics_ticks": 13198,
+      "duration_seconds": 109.983333,
+      "world_decisions": 3300,
+      "agent_slots": 3300,
+      "active_decisions": 3300,
+      "terminal_reason": 1,
+      "episode_return": 92.0000001,
+      "reward_components": {
+        "kills": 108,
+        "escapes": -14,
+        "damage": -0.999999966,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 108,
+          "assists": 0,
+          "damage": 1890
+        }
+      ]
+    },
+    {
+      "seed": 1017,
+      "action_seed": 2246822290,
+      "scheduled": 200,
+      "spawned": 106,
+      "killed": 97,
+      "escaped": 3,
+      "unresolved": 6,
+      "unspawned": 94,
+      "score": 406,
+      "failure_fraction": 0.514999986,
+      "escape_fraction": 0.015,
+      "survivors": 0,
+      "physics_ticks": 11462,
+      "duration_seconds": 95.5166667,
+      "world_decisions": 2866,
+      "agent_slots": 2866,
+      "active_decisions": 2866,
+      "terminal_reason": 1,
+      "episode_return": 89.0000001,
+      "reward_components": {
+        "kills": 97,
+        "escapes": -6,
+        "damage": -0.999999993,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 97,
+          "assists": 0,
+          "damage": 1540
+        }
+      ]
+    },
+    {
+      "seed": 1018,
+      "action_seed": 2246822289,
+      "scheduled": 200,
+      "spawned": 68,
+      "killed": 61,
+      "escaped": 0,
+      "unresolved": 7,
+      "unspawned": 132,
+      "score": 268,
+      "failure_fraction": 0.694999993,
+      "escape_fraction": 0,
+      "survivors": 0,
+      "physics_ticks": 7364,
+      "duration_seconds": 61.3666667,
+      "world_decisions": 1841,
+      "agent_slots": 1841,
+      "active_decisions": 1841,
+      "terminal_reason": 1,
+      "episode_return": 59.0000001,
+      "reward_components": {
+        "kills": 61,
+        "escapes": 0,
+        "damage": -0.999999966,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 61,
+          "assists": 0,
+          "damage": 975
+        }
+      ]
+    },
+    {
+      "seed": 1019,
+      "action_seed": 2246822288,
+      "scheduled": 200,
+      "spawned": 143,
+      "killed": 131,
+      "escaped": 5,
+      "unresolved": 7,
+      "unspawned": 57,
+      "score": 604,
+      "failure_fraction": 0.345000029,
+      "escape_fraction": 0.025,
+      "survivors": 0,
+      "physics_ticks": 15477,
+      "duration_seconds": 128.975,
+      "world_decisions": 3870,
+      "agent_slots": 3870,
+      "active_decisions": 3870,
+      "terminal_reason": 1,
+      "episode_return": 119,
+      "reward_components": {
+        "kills": 131,
+        "escapes": -10,
+        "damage": -0.999999974,
+        "deaths": -1
+      },
+      "ships": [
+        {
+          "id": 0,
+          "health": 0,
+          "kills": 131,
+          "assists": 0,
+          "damage": 2225
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "failure_fraction": {
+      "mean": 0.6637500079,
+      "std": 0.12971965198168858
+    },
+    "escape_fraction": {
+      "mean": 0.0115,
+      "std": 0.009233092656309694
+    },
+    "killed": {
+      "mean": 67.25,
+      "std": 25.943929925899816
+    },
+    "survivors": {
+      "mean": 0,
+      "std": 0.0
+    },
+    "duration_seconds": {
+      "mean": 68.25708331,
+      "std": 24.47449907182752
+    },
+    "episode_return": {
+      "mean": 60.650000150000004,
+      "std": 24.393185509789408
+    },
+    "score": {
+      "mean": 314.2,
+      "std": 116.66173322902416
+    }
+  },
+  "targets": {
+    "raw_escape_pass": true,
+    "successful_defense": false
+  },
+  "performance": {
+    "wall_seconds": 0.112744541,
+    "world_decisions_per_second": 363334.6646912155,
+    "agent_slots_per_second": 363334.6646912155,
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "rendering": false
+  }
+}

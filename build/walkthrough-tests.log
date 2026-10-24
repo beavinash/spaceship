@@ -1,0 +1,30 @@
+./build/test_core
+PASS reset isolation and configuration
+PASS simultaneous bounded movement for 1-8 ships
+PASS independent firing cooldowns and projectile ownership
+PASS deterministic enemy wave schedule and bounded paths
+PASS shared damage with single kill and assist attribution
+PASS per-ship contact damage and finite explosion hazards
+PASS exact-once live enemy escape accounting
+PASS episode termination with conserved enemy obligations
+PASS configurable team reward with no event carry-over
+PASS stable normalized observations with complete zero padding
+PASS invalid configuration and explicit capacity failures
+PASS 1000000 allied decision slots across 22 episodes with deterministic replay
+All core tests passed
+./build/test_ppo
+PASS lossless reward transport retains simultaneous events and escape ratio
+PASS independent GAE oracle before/on/after boundaries for every team size
+PASS actual collector incoming-index layout and aliased return storage
+./build/test_bots
+PASS seeded random baseline reproduces actions and complete traces
+PASS independent greedy agents pursue the most advanced live threat
+PASS lane team splits threats and redistributes coverage after an ally dies
+./build/test_input
+PASS keyboard directions with scripted allies and independent cooldown-limited fire
+python3 -m unittest discover -s tests -p 'test_*.py'
+................
+----------------------------------------------------------------------
+Ran 16 tests in 0.283s
+
+OK

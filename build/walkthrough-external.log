@@ -1,0 +1,7 @@
+patching file 'src/pufferl.cu'
+PASS real pinned PufferLib CPU inference smoke
+Created UNTRAINED initialization; no PPO updates performed
+PASS real PufferNet checkpoint load, recurrent evaluation and truncated-file rejection
+PASS real PufferLib buffers route all allies across isolated worlds
+PASS dead slots and consecutive team boundaries preserve rewards and reset observations
+PASS GPU diagnostic event fixtures locally for 32 team/boundary combinations

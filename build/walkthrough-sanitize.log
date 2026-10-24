@@ -1,0 +1,16 @@
+mkdir -p build
+clang -Inative -std=c11 -Wall -Wextra -Werror -pedantic -O2 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer tests/test_core.c native/spaceship_core.c -lm -o build/test_sanitize
+./build/test_sanitize
+PASS reset isolation and configuration
+PASS simultaneous bounded movement for 1-8 ships
+PASS independent firing cooldowns and projectile ownership
+PASS deterministic enemy wave schedule and bounded paths
+PASS shared damage with single kill and assist attribution
+PASS per-ship contact damage and finite explosion hazards
+PASS exact-once live enemy escape accounting
+PASS episode termination with conserved enemy obligations
+PASS configurable team reward with no event carry-over
+PASS stable normalized observations with complete zero padding
+PASS invalid configuration and explicit capacity failures
+PASS 1000000 allied decision slots across 22 episodes with deterministic replay
+All core tests passed
