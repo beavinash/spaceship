@@ -199,3 +199,45 @@ void test_eval_reports_reward_components(void) {
     }
     CHECK(file_contains("build/test-eval-components.json", "\"bomb\": -0.04"));
 }
+
+void test_eval_reports_ammo_out_and_bomb_damage(void) {
+    Policy p;
+    policy_random(&p);
+    static EpisodeResult res[100];
+    int n = 0;
+    CHECK(eval_run(&p, "dev", 0, res, &n) == 0 && n == 20);
+
+    /* Replay scenario 1000 the way eval plays it, then compare with its episode stats. */
+    Env env;
+    env_reset(&env, 1000u);
+    env.action_repeat = p.action_repeat;
+    Pcg32 rng;
+    pcg32_seed(&rng, 1000u, 0xe7a1u);
+    RewardConfig cfg = reward_config_default();
+    float r[NUM_SHIPS];
+    while (!env.terminated && !env.truncated) {
+        ShipAction a[NUM_SHIPS];
+        policy_act(&p, &env, &rng, a);
+        env_step(&env, a);
+        env_rewards(&env, &cfg, r);
+    }
+    double bomb = 0.0, out = 0.0;
+    for (int k = 0; k < NUM_SHIPS; k++) {
+        bomb += env.stats.bomb_damage[k];
+        out += (env.stats.ammo_out_tick[k] ? env.stats.ammo_out_tick[k] : env.tick) / (double)TICK_HZ / NUM_SHIPS;
+    }
+    CHECK(bomb > 0.0);
+    CHECK_NEAR(res[0].bomb_damage, bomb, 1e-9);
+    CHECK_NEAR(res[0].ammo_out_seconds, out, 1e-9);
+    int ok = 1;
+    for (int i = 0; i < n; i++) {
+        ok &= res[i].bomb_damage >= 0.0 && res[i].bomb_damage <= res[i].damage_taken;
+        ok &= res[i].ammo_out_seconds > 0.0 && res[i].ammo_out_seconds <= res[i].episode_seconds;
+    }
+    CHECK(ok);
+
+    ReportMeta meta = {.policy = "random", .split = "dev", .checkpoint = NULL, .binary = NULL};
+    CHECK(eval_write_json("build/test-eval-ammo.json", &meta, &p, res, n) == 0);
+    CHECK(file_contains("build/test-eval-ammo.json", "\"bomb_damage\": {\"mean\": "));
+    CHECK(file_contains("build/test-eval-ammo.json", "\"ammo_out_seconds\": {\"mean\": "));
+}

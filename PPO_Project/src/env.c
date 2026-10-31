@@ -72,6 +72,9 @@ static void fire_missile(Env *env, int owner) {
     m->owner = owner;
     m->id = env->next_missile_id++;
     s->ammo--;
+    if (s->ammo == 0) {
+        env->stats.ammo_out_tick[owner] = env->tick + 1;
+    }
     s->weapon_cd = WEAPON_COOLDOWN_TICKS;
     env->events[owner].shots++;
     env->stats.shots[owner]++;
@@ -244,6 +247,7 @@ static void resolve_contacts(Env *env) {
                 env->events[i].health_lost += lost;
                 if (e->dead) {
                     env->events[i].bomb_health_lost += lost;
+                    env->stats.bomb_damage[i] += lost;
                 }
                 env->stats.damage_taken[i] += lost;
                 e->attack_cd_left = e->attack_cd_ticks;

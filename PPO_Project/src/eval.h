@@ -55,10 +55,12 @@ typedef struct {
     double kills;
     double hits;
     double shots;
+    double ammo_out_seconds; /* mean per ship: when it fired its last missile, else the episode's end */
     double accuracy;         /* hits / shots */
     double aimed_shot_share; /* shots fired with a predicted hit / shots */
     double edge_share;       /* alive time spent in the edge band / alive time */
     double damage_taken;
+    double bomb_damage; /* the part of damage_taken dealt by explosions */
     double deaths;
     double alive_at_end;
     double survival_seconds; /* mean per ship */

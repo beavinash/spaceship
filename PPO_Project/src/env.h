@@ -163,10 +163,12 @@ typedef struct {
     int hits[NUM_SHIPS];
     int shots[NUM_SHIPS];
     float damage_taken[NUM_SHIPS];
+    float bomb_damage[NUM_SHIPS]; /* the part of damage_taken dealt by explosions */
     int died[NUM_SHIPS];
     int alive_ticks[NUM_SHIPS];
     int edge_ticks[NUM_SHIPS];  /* alive ticks with the ship's centre inside EDGE_BAND */
     int aimed_shots[NUM_SHIPS]; /* shots whose fire solution predicted a hit at launch */
+    int ammo_out_tick[NUM_SHIPS]; /* ticks elapsed when the last missile left; 0 while any remain */
     float episode_return[NUM_SHIPS];
     RewardParts parts[NUM_SHIPS];
     int spawned;

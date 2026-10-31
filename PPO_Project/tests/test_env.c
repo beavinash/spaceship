@@ -962,3 +962,25 @@ void test_env_explosion_damage_costs_extra(void) {
     CHECK_NEAR(env.events[0].bomb_health_lost, 0.5, 0.0);
     CHECK_NEAR(env.stats.parts[0].bomb, -0.02, 1e-6);
 }
+
+void test_env_tracks_ammo_out_and_bomb_damage(void) {
+    Env env;
+    quiet_env(&env);
+    ShipAction a[NUM_SHIPS] = {FIRE, IDLE, IDLE};
+    for (int t = 0; t < 3300; t++) {
+        env_tick(&env, a);
+        env.n_missiles = 0;
+        if (t == 2969) {
+            CHECK(env.stats.ammo_out_tick[0] == 0); /* 0 while a missile is left */
+        }
+    }
+    CHECK(env.stats.ammo_out_tick[0] == 2971); /* the 100th missile left during tick 99 x 30 = 2970 */
+    CHECK(env.stats.ammo_out_tick[1] == 0);
+
+    quiet_env(&env);
+    frozen_explosion(&env, 375.0f, 675.0f);
+    frozen_enemy(&env, 2, 400.0f, 700.0f); /* both touch ship 0 in the same tick */
+    hold(&env, IDLE, IDLE, IDLE, 1);
+    CHECK_NEAR(env.stats.damage_taken[0], 11.0, 0.0);
+    CHECK_NEAR(env.stats.bomb_damage[0], 1.0, 0.0);
+}
