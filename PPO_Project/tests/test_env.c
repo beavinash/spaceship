@@ -417,7 +417,7 @@ void test_env_rewards_follow_configured_coefficients(void) {
     RewardConfig cfg = reward_config_default();
     CHECK_NEAR(cfg.kill_points, 0.125, 1e-7);
     CHECK_NEAR(cfg.hit, 0.02, 1e-7);
-    CHECK_NEAR(cfg.shot, -0.01, 1e-7);
+    CHECK_NEAR(cfg.shot, -0.05, 1e-7); /* amendment 5: a blind shot (18% land) must not pay */
     CHECK_NEAR(cfg.damage, -0.01, 1e-7);
     CHECK_NEAR(cfg.death, -2.0, 1e-7);
     CHECK_NEAR(cfg.escape, -0.05, 1e-7);
@@ -430,24 +430,24 @@ void test_env_rewards_follow_configured_coefficients(void) {
                                  .health_lost = 7.0f, .died = 0, .escapes = 2};
     env.events[1] = (ShipEvents){.health_lost = 3.0f, .died = 1};
     env_rewards(&env, &cfg, r);
-    CHECK_NEAR(r[0], 1.0 + 0.06 - 0.02 - 0.07 - 0.10, 1e-6);
+    CHECK_NEAR(r[0], 1.0 + 0.06 - 0.10 - 0.07 - 0.10, 1e-6);
     CHECK_NEAR(r[1], -0.03 - 2.0, 1e-6);
     CHECK_NEAR(r[2], 0.0, 0.0);
 
     cfg.ally_share = 0.5f;
     env_rewards(&env, &cfg, r);
-    CHECK_NEAR(r[0], 0.87 + 0.5 * 0.125 * 4.0, 1e-6);
+    CHECK_NEAR(r[0], 0.79 + 0.5 * 0.125 * 4.0, 1e-6);
 
     const RewardParts *p = &env.stats.parts[0];
     CHECK_NEAR(p->kill, 2.0, 1e-6);
     CHECK_NEAR(p->hit, 0.12, 1e-6);
-    CHECK_NEAR(p->shot, -0.04, 1e-6);
+    CHECK_NEAR(p->shot, -0.20, 1e-6);
     CHECK_NEAR(p->damage, -0.14, 1e-6);
     CHECK_NEAR(p->escape, -0.20, 1e-6);
     CHECK_NEAR(p->ally, 0.25, 1e-6);
     CHECK_NEAR(p->kill + p->hit + p->shot + p->damage + p->death + p->escape + p->ally,
                env.stats.episode_return[0], 1e-5);
-    CHECK_NEAR(env.stats.episode_return[0], 0.87 + 1.12, 1e-5);
+    CHECK_NEAR(env.stats.episode_return[0], 0.79 + 1.04, 1e-5);
     CHECK_NEAR(env.stats.parts[1].death, -4.0, 1e-6);
 }
 

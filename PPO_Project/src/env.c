@@ -336,7 +336,7 @@ RewardConfig reward_config_default(void) {
     RewardConfig cfg = {
         .kill_points = 0.125f, /* +0.25 / +0.5 / +1.0 for 2 / 4 / 8 upstream points */
         .hit = 0.02f,
-        .shot = -0.01f,
+        .shot = -0.05f, /* a blind shot (18% land) loses reward; an aimed one (63% land) still pays */
         .damage = -0.01f,
         .death = -2.0f,
         .escape = -0.05f,

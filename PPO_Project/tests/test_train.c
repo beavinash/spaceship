@@ -99,7 +99,7 @@ void test_train_run_writes_manifest_and_checkpoints(void) {
     CHECK(file_contains(manifest, "\"git_commit\": \""));
     CHECK(file_contains(manifest, "\"ship_health\": 200"));
     CHECK(file_contains(manifest, "\"ship_ammo\": 100"));
-    CHECK(file_contains(manifest, "\"shot\": -0.01"));
+    CHECK(file_contains(manifest, "\"shot\": -0.05"));
 
     TrainConfig tc = rc.train;
     tc.seed = 99u; /* different initial weights, so a successful load is visible */

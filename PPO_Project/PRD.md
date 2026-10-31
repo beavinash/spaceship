@@ -481,7 +481,11 @@ Review scope: PPO_Project/
   - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final` → `team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`; random `103.68 +/- 4.65, deaths 1.40`; legacy `103.78 +/- 4.42, deaths 0.65`; judged: `MQ-1 PASS`, `MQ-2 PASS`, `MQ-3 PASS` (edge 0.033), `MQ-4 PASS` (accuracy 0.288 vs 0.256, aimed 0.243 vs 0.229); single training seed, so the 2-of-3-seeds clause is not assessable
   - regression: `make -C PPO_Project test` → exit 0; `47 tests, 589 checks, 0 failed checks, 0 failed tests`
   - scans: no code changed in this task
-- [ ] T060 | P1 | depends: T059 | AC-029 | Raise the default per-missile cost from −0.01 to −0.05; done when: the coefficient test expects `shot` = −0.05.
+- [x] T060 | P1 | depends: T059 | AC-029 | Raise the default per-missile cost from −0.01 to −0.05; done when: the coefficient test expects `shot` = −0.05.
+  - red: `make -C PPO_Project test T=rewards_follow` → exit 2; `tests/test_env.c:420: CHECK_NEAR(cfg.shot, -0.05) failed: -0.00999999978 vs -0.05`
+  - green: `make -C PPO_Project test T=rewards_follow` → exit 0; `PASS env_rewards_follow_configured_coefficients`. The two REWARD.md example tests moved by exactly −0.04 per shot (returns 0.59 → 0.43, 0.2771 → 0.1971, −0.2429 → −0.3229) and were re-pinned; the document follows in T063
+  - regression: `make -C PPO_Project test` → exit 0; `53 tests, 636 checks, 0 failed checks, 0 failed tests`
+  - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; dependency audit: unavailable (no third-party code in the core)
 - [ ] T061 | P1 | depends: T060 | AC-029 | Add a `bomb` reward term for health lost to explosions; done when: a fixture charges −0.05 per explosion HP in total while body contact still costs −0.01 per HP.
 - [ ] T062 | P1 | depends: T061 | AC-030 | Report explosion damage with ammo-out time in eval reports; done when: an eval test finds both metrics matching the episode stats.
 - [ ] T063 | P1 | depends: T062 | AC-028 | Update REWARD.md for the amendment-5 reward; done when: its worked examples match the pinned tests again.

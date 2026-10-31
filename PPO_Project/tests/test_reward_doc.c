@@ -34,16 +34,16 @@ void test_reward_doc_single_ship_type3_kill(void) {
         }
     }
     const RewardParts *p = &env.stats.parts[0];
-    CHECK_NEAR(first, -0.01 + 0.5 * 0.99 * 1.0, 1e-5); /* shot cost + potential 0 -> 1 */
+    CHECK_NEAR(first, -0.05 + 0.5 * 0.99 * 1.0, 1e-5); /* shot cost + potential 0 -> 1 */
     CHECK(n_hits == 4 && hit_decisions[0] == 49 && hit_decisions[3] == 68);
     CHECK(kill_decision == 68);
     CHECK_NEAR(kill_step, 1.0 + 0.02 - 0.5 * 1.0, 1e-4); /* kill + hit, potential 1 -> 0: +0.52 */
     CHECK_NEAR(p->kill, 1.0, 1e-6);
     CHECK_NEAR(p->hit, 0.08, 1e-6);
-    CHECK_NEAR(p->shot, -0.04, 1e-6);
+    CHECK_NEAR(p->shot, -0.20, 1e-6);
     CHECK_NEAR(p->damage, -0.11, 1e-5); /* the wreck drifts down onto the ship: 11 x 1 HP */
     CHECK_NEAR(p->align, 0.495 - 67 * 0.005 - 0.5, 1e-4); /* = -0.34 */
-    CHECK_NEAR(env.stats.episode_return[0], 0.59, 1e-4);
+    CHECK_NEAR(env.stats.episode_return[0], 0.43, 1e-4);
     CHECK(env.stats.score[0] == 8 && env.stats.episode_return[1] == 0.0f && env.stats.episode_return[2] == 0.0f);
 }
 
@@ -70,11 +70,11 @@ void test_reward_doc_three_ships_shared_target(void) {
         }
     }
     float q = 1.0f - 20.0f / SHOT_RAMP; /* both ships are 20 px off centre */
-    CHECK_NEAR(first, -0.01 + 0.5 * 0.99 * q, 1e-5); /* = +0.3436 */
+    CHECK_NEAR(first, -0.05 + 0.5 * 0.99 * q, 1e-5); /* = +0.3036 */
     CHECK(env.stats.escapes == 1);
     CHECK(env.stats.kills[0] == 1 && env.stats.kills[1] == 0); /* same-tick volley: ship 0's missile lands first */
     CHECK(env.stats.hits[0] == 2 && env.stats.hits[1] == 1);
-    CHECK_NEAR(env.stats.episode_return[0], 0.2771, 1e-4);
-    CHECK_NEAR(env.stats.episode_return[1], -0.2429, 1e-4);
+    CHECK_NEAR(env.stats.episode_return[0], 0.1971, 1e-4);
+    CHECK_NEAR(env.stats.episode_return[1], -0.3229, 1e-4);
     CHECK_NEAR(env.stats.episode_return[2], -0.05, 1e-6);
 }
