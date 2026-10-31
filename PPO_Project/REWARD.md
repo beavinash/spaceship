@@ -275,6 +275,20 @@ Two defects in the learning signal were fixed, each test-first. Neither changes 
 
 Tests: `env_rewards_follow_configured_coefficients`, `env_explosion_damage_costs_extra`, `env_tracks_ammo_out_and_bomb_damage`, `eval_reports_ammo_out_and_bomb_damage`. Unlike 10.1 and 10.2, this changes which policy is best, so it needs retraining.
 
+**Retrain (T064).** One 15-minute run on seed 101 (3,247 updates, 6.6M decisions) with the new reward. The selected checkpoint is the run's final one, the best of 22 on dev. It is kept locally in `runs/bomb101/`, not committed.
+
+| Dev, 20 scenarios | Kept checkpoint (old reward) | Retrained (amendment 5) |
+|---|---|---|
+| ammo runs out (s, mean per ship) | 27.0 | **81.0** |
+| shots fired with a predicted hit | 24% | **81%** |
+| accuracy | 0.283 | **0.729** |
+| team score | 119.3 | **253.0** |
+| explosion damage (team HP) | 176.3 (6.8 per kill) | **145.7 (2.6 per kill)** |
+| body damage (team HP) | **40.6** | 249.1 |
+| ships lost per episode | **0.00** | 0.20 |
+
+The two targeted habits changed as intended, and the policy now aims before it fires. In exchange it hunts closer to the enemies and takes more body hits, which still cost only −0.01 per HP. The ships it lost all died in the last 35 s. This is one seed, picked as the best of 22 dev scores, and it has not been run on the held-out test scenarios.
+
 ## 11. Known issues left as they are (with numbers)
 
 ### 11.1 Explosions crowd targets out of the observation

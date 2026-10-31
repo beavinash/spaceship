@@ -501,7 +501,11 @@ Review scope: PPO_Project/
   - green: the same check → exit 0; `doccheck: all 16 pinned numbers present, 9 stale ones gone`. Section 9 was regenerated from fresh `ppo eval` dev reports for the kept checkpoint, random, plus the upstream tables (components sum to the return within 5e-6); section 10.3 records the amendment
   - regression: `make -C PPO_Project test T=reward` → exit 0; `4 tests, 54 checks, 0 failed checks, 0 failed tests`; `T=explosion_damage` and `T=ammo_out` pass. HOW_TO_RUN.md no longer hard-codes a stale test count (it said 47)
   - scans: not applicable (documentation only; no code changed)
-- [ ] T064 | P1 | depends: T063 | AC-031 | Retrain seed 101 for 15 minutes with the new reward; done when: a dev comparison with the kept checkpoint records ammo-out time, explosion damage, score, plus deaths.
+- [x] T064 | P1 | depends: T063 | AC-031 | Retrain seed 101 for 15 minutes with the new reward; done when: a dev comparison with the kept checkpoint records ammo-out time, explosion damage, score, plus deaths.
+  - red: before the retrain, the kept checkpoint on dev (`ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin`) → `team score 119.30 +/- 10.29, deaths 0.00 +/- 0.00`; `ammo_out_seconds` 27.0, `bomb_damage` 176.3 of 216.9 HP
+  - green: `ppo train --run-dir runs/bomb101 --seed 101 --total-decisions 50000000 --max-seconds 900 --checkpoint-every 150` (built at 0e368c1) → exit 0, `"status": "time_limit"`, 3,247 updates, 6,649,856 decisions; `ppo select --run-dir runs/bomb101` → `selected runs/bomb101/final.bin (update 3247): dev team score 253.00, deaths 0.20, from 22 checkpoints`; its dev report → `team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18`, `ammo_out_seconds` 81.0, `bomb_damage` 145.7 (2.6 HP per kill vs 6.8), accuracy 0.729 vs 0.283, aimed share 0.809 vs 0.243. Trade-off: body damage 249.1 vs 40.6 HP, ships lost 0.20 vs 0.00 (4 of 60 ship-episodes, all after 87 s). Update 2100 (≈ 585 s) scored 174.0 with no losses, but ship 0 had stopped firing there (2.4 shots per episode)
+  - regression: no code changed in this task; the full suite at 80db9e4: `make test` → exit 0, `56 tests, 667 checks, 0 failed checks, 0 failed tests`
+  - scans: not applicable (training run only); single seed, best of 22 dev scores, no held-out test-split run
 
 ## 6. Open questions
 
