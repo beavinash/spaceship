@@ -263,7 +263,7 @@ Scope is complete for this request. On dev, the retrained ships keep missiles un
 | `tests/test_env.c` 420, 433, 439, 444, 450 (old → new); new 913–986 | Coefficient expectations for −0.05; `frozen_explosion`, `env_explosion_damage_costs_extra`, `env_tracks_ammo_out_and_bomb_damage` | T060–T062 |
 | `tests/test_eval.c` old 185–186 → new 185–187, old 193–194 → new 194–195, new 200–242 | Ten components in the sum check (tolerance 1e-3), `reward_bomb` key, report `bomb` config, `eval_reports_ammo_out_and_bomb_damage` | T061, T062 |
 | `tests/test_reward_doc.c` 37, 43, new 45, 46 → 47, 73 → 74, 77–78 → 78–79; `tests/test_train.c` old 102 → new 102–103; `tests/tests.def` new 50–51, 54 | Worked examples re-pinned (example 1 return −0.01 with bomb −0.44); manifest expects shot −0.05 and bomb −0.04; three tests registered | T060–T062 |
-| `REWARD.md` (+107/−35 across 37 hunks, e.g. new 21–23, 64–72, 141–155, 206–245, 265–291) | Formula, per-enemy table, aimed vs blind shot economics, examples 1–3, section 9 regenerated, new section 10.3 with the retrain result | T063, T064 |
+| `REWARD.md` (+78/−33 across 30 hunks, e.g. new 21, 23, 64–72, 141–147, 149, 155, 206, 212, 214, 265–291) | Formula, per-enemy table, aimed vs blind shot economics, examples 1–3, section 9 regenerated, new section 10.3 with the retrain result | T063, T064 |
 | `PRD.md` new 14–18, 108, 110, 170–171, 184, 484–508, 516; `HOW_TO_RUN.md` 28 | Amendment 5, reward spec, AC-029–AC-031, T060–T064 with evidence, Q3; stale test count removed | all |
 
 ## 3. Verification evidence
