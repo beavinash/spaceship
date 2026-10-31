@@ -230,3 +230,99 @@ ppo on dev (20 scenarios): team score 119.30 +/- 10.29, deaths 0.00 +/- 0.00   (
 - **Slot crowding (root cause) unfixed.** Explosions fill 5.2 of the 8 enemy slots. Fixing that changes observations and needs retraining.
 - **Latent suicide incentive.** If γ is raised toward 1, the escape tax (−6.3 per episode while alive) exceeds death plus damage (−4). At γ = 0.99 the discounted cost is only about −0.18 (REWARD.md 11.2).
 - **Slow sanitizer run.** One `make sanitize` run took about 8 minutes while the machine's load average was about 12. Re-timed individually, the heaviest sanitized tests take 5–7 s and the 1M-decision stress run 1 s.
+
+# Addendum 2 — ammo and fire-bomb reward (T060–T064)
+
+## 1. Delivery summary
+
+The user reported "right now it's not avoiding the fire bomb as well as ammo empty within 27 seconds". Shown the proposed code, they replied "make the above changes and let's train for 10-15 minutes and show me the spaceship playing the game." This round delivered:
+
+- **Shot cost.** The default per-missile cost is now −0.05, up from −0.01 (T060).
+- **Fire-bomb term.** A `bomb` reward term charges an extra −0.04 per HP lost to explosions (`--bomb`, T061).
+- **New metrics.** `ammo_out_seconds` and `bomb_damage` appear in every eval report (T062).
+- **REWARD.md** is updated (T063).
+- **Retrain.** One 15-minute retrain on seed 101, compared with the kept checkpoint on dev (T064). The viewer showed the result.
+
+Scope is complete for this request. On dev, the retrained ships keep missiles until 81 s on average instead of 27 s. They take 2.6 HP from explosions per kill instead of 6.8, and the team score is 253.0 instead of 119.3. They also take more body hits and lose 0.20 ships per episode (section 5).
+
+**Snapshot.**
+
+- Range: base `b90aa38` (the user's own commit adding the root `artifacts/` and `build/` folders, outside this scope and untouched) → head `6a538bc`, scope `PPO_Project/`.
+- State: committed and clean. `README.md` is untracked by design, and `runs/` (including the new checkpoint) is ignored.
+
+## 2. Changes in the diff
+
+| Changed file and diff line(s) | Observed change | Relevant task |
+| --- | --- | --- |
+| `src/env.c` old 339 → new 346 | Default `.shot = -0.05f` with its rationale comment | T060 |
+| `src/env.c` new 248–251, 354, 375, 379, 390 | Explosion contact adds to `bomb_health_lost` (and `stats.bomb_damage`); default `.bomb = -0.04f`; `part.bomb` computed, added to `r`, and accumulated | T061, T062 |
+| `src/env.c` new 75–77 | `stats.ammo_out_tick` recorded when a ship fires its last missile | T062 |
+| `src/env.h` new 125, 141, 157, 166, 171 | `ShipEvents.bomb_health_lost`, `RewardConfig.bomb`, `RewardParts.bomb`, `EpisodeStats.bomb_damage`, `EpisodeStats.ammo_out_tick` | T061, T062 |
+| `src/eval.c` new 207–208, 223, 310, 315, 332; old 353–354 → new 359–360; `src/eval.h` new 58, 63; old 71 → new 73 | `ammo_out_seconds`, `bomb_damage`, `reward_bomb` per episode and in the JSON summary; the report's reward config includes `bomb` | T061, T062 |
+| `src/main.c` old 16 → new 16, new 86–87; `src/train.c` old 81 → new 81, old 89–91 → new 89–91 | `--bomb` flag; `bomb` recorded in the run manifest | T061 |
+| `tests/test_env.c` 420, 433, 439, 444, 450 (old → new); new 913–986 | Coefficient expectations for −0.05; `frozen_explosion`, `env_explosion_damage_costs_extra`, `env_tracks_ammo_out_and_bomb_damage` | T060–T062 |
+| `tests/test_eval.c` old 185–186 → new 185–187, old 193–194 → new 194–195, new 200–242 | Ten components in the sum check (tolerance 1e-3), `reward_bomb` key, report `bomb` config, `eval_reports_ammo_out_and_bomb_damage` | T061, T062 |
+| `tests/test_reward_doc.c` 37, 43, new 45, 46 → 47, 73 → 74, 77–78 → 78–79; `tests/test_train.c` old 102 → new 102–103; `tests/tests.def` new 50–51, 54 | Worked examples re-pinned (example 1 return −0.01 with bomb −0.44); manifest expects shot −0.05 and bomb −0.04; three tests registered | T060–T062 |
+| `REWARD.md` (+107/−35 across 37 hunks, e.g. new 21–23, 64–72, 141–155, 206–245, 265–291) | Formula, per-enemy table, aimed vs blind shot economics, examples 1–3, section 9 regenerated, new section 10.3 with the retrain result | T063, T064 |
+| `PRD.md` new 14–18, 108, 110, 170–171, 184, 484–508, 516; `HOW_TO_RUN.md` 28 | Amendment 5, reward spec, AC-029–AC-031, T060–T064 with evidence, Q3; stale test count removed | all |
+
+## 3. Verification evidence
+
+Code is identical at `80db9e4` and `6a538bc`; T064 changed only `PRD.md` and `REWARD.md`.
+
+```text
+make test          (at 6a538bc) -> exit 0   56 tests, 667 checks, 0 failed checks, 0 failed tests
+make sanitize      (at 80db9e4) -> exit 0   56 tests, 667 checks, 0 failed checks, 0 failed tests
+                                            stress: 1000000 decisions, 279 episodes, peak 16/64 enemies, 28/64 missiles, 0 violations
+make analyze       (at 80db9e4) -> exit 0   analyze: 0 findings
+make smoke         (at 80db9e4) -> exit 0
+make viewer-check  (at 80db9e4) -> exit 0   screenshot: build/viewer-check.png 1000x1000, 23782 lit pixels, 3 ships, 9 enemies, 17 missiles
+marker scan (14 changed paths since b90aa38): none found
+```
+
+Model evaluation (dev scenarios 1000–1019, sampled actions; separate from the software tests):
+
+```text
+ppo train --run-dir runs/bomb101 --seed 101 --total-decisions 50000000 --max-seconds 900 --checkpoint-every 150
+  -> exit 0, "status": "time_limit", 3247 updates, 6649856 decisions, git_commit 0e368c1 (clean)
+ppo select --run-dir runs/bomb101
+  -> selected runs/bomb101/final.bin (update 3247): dev team score 253.00, deaths 0.20, from 22 checkpoints
+ppo eval (kept checkpoints/ppo_seed101.bin) -> team score 119.30 +/- 10.29, deaths 0.00 +/- 0.00
+ppo eval (runs/bomb101/selected.bin)        -> team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18
+ppo eval (update_002100.bin, ~585 s)        -> team score 174.00 +/- 5.89, deaths 0.00 +/- 0.00
+ppo eval --policy random                    -> team score 100.70 +/- 10.57, deaths 1.30 +/- 0.32
+
+                          kept    selected
+ammo_out_seconds          27.0    81.0
+aimed_shot_share          0.243   0.809
+accuracy                  0.283   0.729
+kills                     26.1    55.0
+bomb_damage (team HP)     176.3   145.7
+damage_taken (team HP)    216.9   394.8
+escapes                   126.6   97.8
+return_mean (new reward)  -9.80   -4.63
+
+viewer, seed 1000, HUD at 30 s: kept "ammo 0" for all three ships; selected "ammo 75", "ammo 58", "ammo 66"
+```
+
+## 4. Acceptance criteria
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| AC-029 shot −0.05 by default; explosion HP costs an extra −0.04 (`--bomb`), logged as a tenth component | met | `env_rewards_follow_configured_coefficients`, `env_explosion_damage_costs_extra`, `eval_reports_reward_components` pass; a `--bomb -0.1` run writes `"bomb": -0.1` to its manifest |
+| AC-030 eval reports explosion damage and ammo-out time | met | `env_tracks_ammo_out_and_bomb_damage`, `eval_reports_ammo_out_and_bomb_damage` pass (replay matches within 1e-9) |
+| AC-031 one 15-minute retrain on seed 101, selected on dev, compared with the kept checkpoint | met | Section 3 model evaluation |
+| AC-028 REWARD.md traces every number to code, tests, or commands | met, with an exception | Examples pinned by tests; section 9 and 10.3 come from `ppo eval`; the 63% / 18% aimed and blind hit rates are *(audit)* figures (section 5) |
+| AC-005 components sum to the return | met | Ten components within 1e-3 (measured ≤ 1.1e-4) on all 20 dev episodes |
+| AC-016 sanitizers and static analysis clean | met | `make sanitize`, `make analyze` above |
+
+## 5. Limitations
+
+- **One seed, optimistic selection.** 253.0 is the best of 22 dev scores from a single run. Neighbouring checkpoints scored 176.2 and 190.2, and the held-out test scenarios were not run for the new checkpoint.
+- **More body hits, some losses.** Body-contact damage rose from 40.6 to 249.1 team HP, and 0.20 ships are lost per episode (4 of 60 ship-episodes, all after about 87 s). The kept checkpoint lost none. Body contact still costs only −0.01 per HP.
+- **A ship went silent mid-training.** At update 2,100 ship 0 fired 2.4 shots per episode; the final checkpoint recovered (93 shots). The higher shot cost makes a "never fire" local optimum possible for an independent learner.
+- **Not equal budgets.** The new run trained 900 s against the kept checkpoint's 600 s. At about 585 s (update 2,100) it already scored 174.0 with no losses, but with ship 0 idle.
+- **New checkpoint not committed.** It lives in `runs/bomb101/` (ignored). `HOW_TO_RUN.md`, `checkpoints/index.json`, and the local README still describe the kept checkpoint.
+- **AC-028 exception.** The 63% / 18% hit rates for aimed vs blind shots, and the per-ship figures above, come from scratch probes not kept in the repo.
+- **Loosened tolerance.** The eval component-sum tolerance went from 1e-4 to 1e-3, because float32 sums now drift up to 1.1e-4 at the larger returns. Leaving out any non-zero component still fails the check.
+- **Viewer self-check.** `viewer --screenshot` exits 1 when no missiles are on screen (the kept checkpoint at 30 s, the new one at 90 s); the images were still saved and inspected.
