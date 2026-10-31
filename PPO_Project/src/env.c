@@ -242,6 +242,9 @@ static void resolve_contacts(Env *env) {
                 float lost = e->damage < s->health ? e->damage : s->health;
                 s->health -= e->damage;
                 env->events[i].health_lost += lost;
+                if (e->dead) {
+                    env->events[i].bomb_health_lost += lost;
+                }
                 env->stats.damage_taken[i] += lost;
                 e->attack_cd_left = e->attack_cd_ticks;
                 if (s->health <= 0.0f) {
@@ -344,6 +347,7 @@ RewardConfig reward_config_default(void) {
         .align = 0.5f,
         .gamma = 0.99f,
         .edge = -0.003f,
+        .bomb = -0.04f, /* explosions ("fire bombs") then cost -0.05 per HP in total */
     };
     return cfg;
 }
@@ -364,10 +368,11 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
             .ally = cfg->ally_share * cfg->kill_points * (float)ev->ally_kill_points,
             .align = cfg->align * (cfg->gamma * phi - env->potential[i]),
             .edge = cfg->edge * (float)near_edge(s),
+            .bomb = cfg->bomb * ev->bomb_health_lost,
         };
         env->potential[i] = phi;
         float r = part.kill + part.hit + part.shot + part.damage + part.death + part.escape + part.ally + part.align +
-                  part.edge;
+                  part.edge + part.bomb;
         RewardParts *sum = &env->stats.parts[i];
         sum->kill += part.kill;
         sum->hit += part.hit;
@@ -378,6 +383,7 @@ void env_rewards(Env *env, const RewardConfig *cfg, float rewards[NUM_SHIPS]) {
         sum->ally += part.ally;
         sum->align += part.align;
         sum->edge += part.edge;
+        sum->bomb += part.bomb;
         env->stats.episode_return[i] += r;
         rewards[i] = r;
     }

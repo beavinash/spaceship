@@ -78,7 +78,7 @@ static int write_manifest(const RunConfig *rc, const char *status, long long upd
             "  \"env\": {\"num_ships\": %d, \"ship_health\": %g, \"ship_ammo\": %d, \"obs_dim\": %d, "
             "\"tick_hz\": %d, \"action_repeat\": %d, \"episode_ticks\": %d},\n"
             "  \"reward\": {\"kill_points\": %g, \"hit\": %g, \"shot\": %g, \"damage\": %g, \"death\": %g, "
-            "\"escape\": %g, \"ally_share\": %g, \"align\": %g, \"edge\": %g},\n"
+            "\"escape\": %g, \"ally_share\": %g, \"align\": %g, \"edge\": %g, \"bomb\": %g},\n"
             "  \"ppo\": {\"envs\": %d, \"steps\": %d, \"hidden\": %d, \"gamma\": %g, \"lambda\": %g, "
             "\"clip\": %g, \"vf_coef\": %g, \"ent_coef\": %g, \"max_grad_norm\": %g, \"lr\": %g, "
             "\"epochs\": %d, \"minibatches\": %d, \"norm_adv\": %d},\n"
@@ -86,9 +86,9 @@ static int write_manifest(const RunConfig *rc, const char *status, long long upd
             "}\n",
             status, PPO_GIT_COMMIT, (unsigned long long)t->seed, updates, decisions, seconds, rc->total_decisions,
             rc->max_seconds, NUM_SHIPS, SHIP_HEALTH, SHIP_AMMO, OBS_DIM, TICK_HZ, ACTION_REPEAT, t->episode_ticks,
-            r->kill_points, r->hit, r->shot, r->damage, r->death, r->escape, r->ally_share, r->align, r->edge, t->envs, t->steps,
-            t->hidden, p->gamma, p->lambda, p->clip, p->vf_coef, p->ent_coef, p->max_grad_norm, p->lr, p->epochs,
-            p->minibatches, p->norm_adv, rc->checkpoint_every);
+            r->kill_points, r->hit, r->shot, r->damage, r->death, r->escape, r->ally_share, r->align, r->edge,
+            r->bomb, t->envs, t->steps, t->hidden, p->gamma, p->lambda, p->clip, p->vf_coef, p->ent_coef,
+            p->max_grad_norm, p->lr, p->epochs, p->minibatches, p->norm_adv, rc->checkpoint_every);
     if (fclose(f) != 0 || rename(tmp, path) != 0) {
         return -1;
     }

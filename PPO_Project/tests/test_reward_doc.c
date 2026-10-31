@@ -42,8 +42,9 @@ void test_reward_doc_single_ship_type3_kill(void) {
     CHECK_NEAR(p->hit, 0.08, 1e-6);
     CHECK_NEAR(p->shot, -0.20, 1e-6);
     CHECK_NEAR(p->damage, -0.11, 1e-5); /* the wreck drifts down onto the ship: 11 x 1 HP */
+    CHECK_NEAR(p->bomb, -0.44, 1e-5);   /* ...and each of those 11 HP costs -0.04 more */
     CHECK_NEAR(p->align, 0.495 - 67 * 0.005 - 0.5, 1e-4); /* = -0.34 */
-    CHECK_NEAR(env.stats.episode_return[0], 0.43, 1e-4);
+    CHECK_NEAR(env.stats.episode_return[0], -0.01, 1e-4); /* staying under the explosion wipes out the kill */
     CHECK(env.stats.score[0] == 8 && env.stats.episode_return[1] == 0.0f && env.stats.episode_return[2] == 0.0f);
 }
 

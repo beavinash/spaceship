@@ -13,7 +13,7 @@ static void usage(void) {
           "            [--envs N] [--steps N] [--hidden N] [--episode-seconds S] [--lr X] [--gamma X] [--lambda X]\n"
           "            [--ent-coef X]\n"
           "            [--epochs N] [--minibatches N] [--kill-points X] [--hit X] [--shot X] [--damage X]\n"
-          "            [--death X] [--escape X] [--ally-share X] [--align X] [--edge X]\n"
+          "            [--death X] [--escape X] [--ally-share X] [--align X] [--edge X] [--bomb X]\n"
           "  ppo eval --policy random|ppo|legacy --output FILE.json [--checkpoint PATH] [--greedy]\n"
           "           [--game-data DIR (legacy; default ../Game_Data)]\n"
           "           [--split dev|test] [--final]\n"
@@ -83,6 +83,8 @@ static int parse_train(int argc, char **argv, RunConfig *rc) {
             t->reward.align = (float)atof(v);
         } else if (!strcmp(flag, "--edge")) {
             t->reward.edge = (float)atof(v);
+        } else if (!strcmp(flag, "--bomb")) {
+            t->reward.bomb = (float)atof(v);
         } else {
             fprintf(stderr, "unknown option %s\n", flag);
             return -1;

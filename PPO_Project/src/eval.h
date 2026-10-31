@@ -68,7 +68,7 @@ typedef struct {
     double return_mean; /* shaped return, mean per ship */
     /* The return split into its reward components, mean per ship (they sum to return_mean). */
     double reward_kill, reward_hit, reward_shot, reward_damage, reward_death;
-    double reward_escape, reward_ally, reward_align, reward_edge;
+    double reward_escape, reward_ally, reward_align, reward_edge, reward_bomb;
 } EpisodeResult;
 
 typedef struct {

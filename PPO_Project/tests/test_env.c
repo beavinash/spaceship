@@ -910,3 +910,55 @@ void test_env_time_limit_is_terminal_for_shaping(void) {
     CHECK_NEAR(env.stats.parts[0].align, 0.5 * 0.99 * q - 0.5 * q, 1e-5);
     CHECK_NEAR(env.potential[0], 0.0, 0.0);
 }
+
+static Enemy *frozen_explosion(Env *env, float x, float y) {
+    Enemy *e = frozen_enemy(env, 0, x, y);
+    e->dead = 1;
+    e->radius = EXPLOSION_RADIUS;
+    e->damage = EXPLOSION_DAMAGE;
+    e->attack_cd_ticks = EXPLOSION_COOLDOWN_TICKS;
+    return e;
+}
+
+void test_env_explosion_damage_costs_extra(void) {
+    RewardConfig cfg = reward_config_default();
+    CHECK_NEAR(cfg.bomb, -0.04, 1e-7);
+    ShipAction idle[NUM_SHIPS] = {IDLE, IDLE, IDLE};
+    float r[NUM_SHIPS];
+    Env env;
+
+    /* An enemy body: 10 HP at -0.01 each, nothing extra. */
+    quiet_env(&env);
+    frozen_enemy(&env, 2, 400.0f, 700.0f);
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.events[0].health_lost, 10.0, 0.0);
+    CHECK(env.events[0].bomb_health_lost == 0.0f);
+    CHECK_NEAR(env.stats.parts[0].damage, -0.10, 1e-6);
+    CHECK(env.stats.parts[0].bomb == 0.0f);
+
+    /* A fire bomb: 1 HP at -0.01 plus -0.04, so -0.05 in total. */
+    quiet_env(&env);
+    frozen_explosion(&env, 375.0f, 675.0f); /* centred on ship 0 */
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    CHECK_NEAR(env.events[0].bomb_health_lost, 1.0, 0.0);
+    CHECK_NEAR(env.stats.parts[0].damage, -0.01, 1e-6);
+    CHECK_NEAR(env.stats.parts[0].bomb, -0.04, 1e-6);
+    CHECK_NEAR(r[0], -0.05, 1e-6);
+    CHECK(env.events[1].bomb_health_lost == 0.0f); /* the shared cooldown spared ship 1 */
+    RewardConfig flat = cfg;
+    flat.bomb = 0.0f; /* --bomb 0 gives back the flat -0.01 per HP */
+    env_rewards(&env, &flat, r);
+    CHECK_NEAR(r[0], -0.01, 1e-6);
+
+    /* Like the damage term, the loss is clamped to the health that was left. */
+    quiet_env(&env);
+    env.ships[0].health = 0.5f;
+    frozen_explosion(&env, 375.0f, 675.0f);
+    env_step(&env, idle);
+    env_rewards(&env, &cfg, r);
+    CHECK(env.events[0].died == 1);
+    CHECK_NEAR(env.events[0].bomb_health_lost, 0.5, 0.0);
+    CHECK_NEAR(env.stats.parts[0].bomb, -0.02, 1e-6);
+}

@@ -218,6 +218,7 @@ static void run_episode(Policy *p, int seed, EpisodeResult *r) {
         r->reward_ally += q->ally / NUM_SHIPS;
         r->reward_align += q->align / NUM_SHIPS;
         r->reward_edge += q->edge / NUM_SHIPS;
+        r->reward_bomb += q->bomb / NUM_SHIPS;
     }
     double aimed = 0.0, edge = 0.0, alive = 0.0;
     for (int k = 0; k < NUM_SHIPS; k++) {
@@ -324,6 +325,7 @@ static const Metric METRICS[] = {
     {"reward_ally", offsetof(EpisodeResult, reward_ally)},
     {"reward_align", offsetof(EpisodeResult, reward_align)},
     {"reward_edge", offsetof(EpisodeResult, reward_edge)},
+    {"reward_bomb", offsetof(EpisodeResult, reward_bomb)},
 };
 #define N_METRICS ((int)(sizeof METRICS / sizeof METRICS[0]))
 
@@ -350,8 +352,8 @@ int eval_write_json(const char *path, const ReportMeta *meta, const Policy *p, c
             NUM_SHIPS, SHIP_HEALTH, SHIP_AMMO, EPISODE_SECONDS, TICK_HZ);
     fprintf(f,
             "  \"reward\": {\"kill_points\": %g, \"hit\": %g, \"shot\": %g, \"damage\": %g, \"death\": %g, "
-            "\"escape\": %g, \"ally_share\": %g, \"align\": %g, \"edge\": %g},\n",
-            rc.kill_points, rc.hit, rc.shot, rc.damage, rc.death, rc.escape, rc.ally_share, rc.align, rc.edge);
+            "\"escape\": %g, \"ally_share\": %g, \"align\": %g, \"edge\": %g, \"bomb\": %g},\n",
+            rc.kill_points, rc.hit, rc.shot, rc.damage, rc.death, rc.escape, rc.ally_share, rc.align, rc.edge, rc.bomb);
     fputs("  \"summary\": {\n", f);
     for (int m = 0; m < N_METRICS; m++) {
         Summary s = summarize(res, n, METRICS[m].offset);

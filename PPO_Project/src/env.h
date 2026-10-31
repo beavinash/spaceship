@@ -122,6 +122,7 @@ typedef struct {
     int hits;
     int shots;
     float health_lost;
+    float bomb_health_lost; /* the part of health_lost dealt by explosions */
     int died;
     int escapes; /* live enemies that escaped while this ship was alive */
 } ShipEvents;
@@ -137,6 +138,7 @@ typedef struct {
     float align; /* potential-based shaping weight on the best shot quality */
     float gamma; /* shaping discount; must equal the learner's gamma */
     float edge;  /* per decision with the ship's centre inside EDGE_BAND of a side wall or the bottom */
+    float bomb;  /* extra per HP lost to explosions, on top of damage */
 } RewardConfig;
 
 #define EDGE_BAND 60.0f
@@ -152,6 +154,7 @@ typedef struct {
     float ally;
     float align;
     float edge;
+    float bomb;
 } RewardParts;
 
 typedef struct {

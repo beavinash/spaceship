@@ -182,18 +182,20 @@ void test_eval_reports_reward_components(void) {
     for (int i = 0; i < n; i++) {
         const EpisodeResult *r = &res[i];
         double sum = r->reward_kill + r->reward_hit + r->reward_shot + r->reward_damage + r->reward_death +
-                     r->reward_escape + r->reward_ally + r->reward_align + r->reward_edge;
-        sums_ok &= fabs(sum - r->return_mean) < 1e-4;
+                     r->reward_escape + r->reward_ally + r->reward_align + r->reward_edge + r->reward_bomb;
+        /* float32 sums over 3,600 decisions drift ~1e-4 at |return| ~ 15; any missing term is >= 0.3 */
+        sums_ok &= fabs(sum - r->return_mean) < 1e-3;
     }
     CHECK(sums_ok);
     CHECK(res[0].reward_shot < 0.0 && res[0].reward_escape < 0.0 && res[0].reward_kill > 0.0);
     ReportMeta meta = {.policy = "random", .split = "dev", .checkpoint = NULL, .binary = NULL};
     CHECK(eval_write_json("build/test-eval-components.json", &meta, &p, res, n) == 0);
     const char *keys[] = {"reward_kill", "reward_hit", "reward_shot", "reward_damage", "reward_death",
-                          "reward_escape", "reward_ally", "reward_align", "reward_edge"};
-    for (int k = 0; k < 9; k++) {
+                          "reward_escape", "reward_ally", "reward_align", "reward_edge", "reward_bomb"};
+    for (int k = 0; k < 10; k++) {
         char needle[64];
         snprintf(needle, sizeof needle, "\"%s\": {\"mean\": ", keys[k]);
         CHECK(file_contains("build/test-eval-components.json", needle));
     }
+    CHECK(file_contains("build/test-eval-components.json", "\"bomb\": -0.04"));
 }
