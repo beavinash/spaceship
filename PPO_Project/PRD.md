@@ -11,6 +11,11 @@ Amendment 4 (2026-10-23): the user asked for "an another document on reward func
 - **Time limit.** The remaining time is observed and evaluation ends at 120 s, yet training bootstrapped past the limit.
 
 T056–T057 fix the two learning-signal defects without changing observations, so the committed checkpoint's play and scores are unaffected. T058 documents the reward. Re-ranking the enemy slots needs retraining and is left as a recommendation.
+Amendment 5 (2026-10-30): the user reported "right now it's not avoiding the fire bomb as well as ammo empty within 27 seconds". Probes of the kept checkpoint on the dev scenarios found:
+- **Ammo.** Ships run out of missiles at 27.0 s on average (random play: 27.6 s). Shots fired with a predicted hit land 63% of the time and blind shots 18%, so at −0.01 per missile even a blind shot nets about +0.025.
+- **Fire bombs.** Explosions cause 81% of the damage the team takes (176 of 217 HP per episode), yet cost the same −0.01 per HP as an enemy body.
+
+Shown the proposed code change, the user replied "Sounds good. make the above changes and let's train for 10-15 minutes and show me the spaceship playing the game." T060–T064 implement it: a −0.05 shot cost, an extra −0.04 per HP lost to explosions, eval metrics for both problems, and one 15-minute retrain on seed 101, shown in the viewer.
 Authoritative backlog: this document, section 5
 
 ## 1. Problem and users
@@ -100,8 +105,9 @@ Entity slots hold the nearest entities by centre distance, ordered nearest first
 ```text
 r_i = 0.125 * points_of_kills_by_i          # +0.25 / +0.5 / +1.0 for type 1 / 2 / 3
     + 0.02  * missile_hits_by_i             # shaping: kills take 2-4 hits
-    - 0.01  * missiles_fired_by_i           # ammo is finite: discourage wasted shots
+    - 0.05  * missiles_fired_by_i           # ammo is finite: a blind shot (18% land) loses reward (amendment 5)
     - 0.01  * health_lost_by_i              # clamped to remaining health
+    - 0.04  * health_lost_to_explosions_by_i  # fire bombs cost -0.05 per HP in total (amendment 5)
     - 2.0   * died_i                        # once, on the death decision
     - 0.05  * escapes   (if ship i alive)   # live enemies leaving the bottom
     + 0.0   * ally_kill_points * 0.125      # team-share knob, off by default
@@ -161,6 +167,8 @@ Software correctness:
 | AC-021 | The fire solution predicts exactly whether an isolated missile fired now hits a given enemy, zigzag reversals included | tests that fire the missile in the real simulation |
 | AC-022 | Alignment shaping equals 0.5 · (γΦ' − Φ) with Φ' = 0 on terminal transitions; the edge penalty applies only inside the 60 px band | reward fixtures |
 | AC-023 | Training metrics and eval reports include edge-time share and the share of shots fired with a predicted hit | CSV/JSON tests |
+| AC-029 | Each missile costs −0.05 by default. Health lost to explosions costs an extra −0.04 per HP (`--bomb`), logged as a tenth reward component | reward fixtures, eval component test |
+| AC-030 | Eval reports include the team's explosion damage and the mean time each ship ran out of ammo | eval tests |
 
 Model quality (stochastic; measured separately from correctness):
 
@@ -173,6 +181,7 @@ Model quality (stochastic; measured separately from correctness):
 | AC-028 | `REWARD.md` explains every reward term for the three ships with worked calculations; each number traces to code, a test, or a reproducible command | document review plus reproduction |
 | AC-025 | Git holds code, tests, docs, and only selected checkpoints (plus a short index); logs, metrics, reports, build output, and periodic checkpoints stay ignored (user request: "commit the most important code, checkpoints, PPO code, instead of logs and build files") | `git ls-files` |
 | AC-024 | A 10-minute pilot with the new defaults records edge time, accuracy, and predicted-hit shot share against random before the official seeds | pilot report |
+| AC-031 | One 15-minute retrain on seed 101 with the amendment-5 reward is selected on dev and compared with the kept checkpoint on ammo-out time, explosion damage, team score, and deaths | dev reports |
 
 Commands (created by T001/T040): `make -C PPO_Project test`, `make -C PPO_Project sanitize`, `make -C PPO_Project analyze`. Dependency audit: the core has no third-party code; the Homebrew packages raylib and cJSON are recorded by version in the README.
 
@@ -472,6 +481,11 @@ Review scope: PPO_Project/
   - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final` → `team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`; random `103.68 +/- 4.65, deaths 1.40`; legacy `103.78 +/- 4.42, deaths 0.65`; judged: `MQ-1 PASS`, `MQ-2 PASS`, `MQ-3 PASS` (edge 0.033), `MQ-4 PASS` (accuracy 0.288 vs 0.256, aimed 0.243 vs 0.229); single training seed, so the 2-of-3-seeds clause is not assessable
   - regression: `make -C PPO_Project test` → exit 0; `47 tests, 589 checks, 0 failed checks, 0 failed tests`
   - scans: no code changed in this task
+- [ ] T060 | P1 | depends: T059 | AC-029 | Raise the default per-missile cost from −0.01 to −0.05; done when: the coefficient test expects `shot` = −0.05.
+- [ ] T061 | P1 | depends: T060 | AC-029 | Add a `bomb` reward term for health lost to explosions; done when: a fixture charges −0.05 per explosion HP in total while body contact still costs −0.01 per HP.
+- [ ] T062 | P1 | depends: T061 | AC-030 | Report explosion damage with ammo-out time in eval reports; done when: an eval test finds both metrics matching the episode stats.
+- [ ] T063 | P1 | depends: T062 | AC-028 | Update REWARD.md for the amendment-5 reward; done when: its worked examples match the pinned tests again.
+- [ ] T064 | P1 | depends: T063 | AC-031 | Retrain seed 101 for 15 minutes with the new reward; done when: a dev comparison with the kept checkpoint records ammo-out time, explosion damage, score, plus deaths.
 
 ## 6. Open questions
 
@@ -479,7 +493,7 @@ Q1 and Q2 were confirmed explicitly; the other items were approved as part of th
 
 - **Q1 — Homebrew packages.** Resolved: approved. Install `raylib`, `pkg-config`, and `cjson` with `brew install raylib pkg-config cjson`; upstream's root game already needs raylib and cJSON. Impact: needed only for the viewer and the legacy baseline. Blocks T034–T039; nothing else.
 - **Q2 — Compute budget.** Resolved (amendment 2): 20 minutes per seed, all on this Mac; Modal dropped.
-- **Q3 — Reward coefficients.** Defaults as in section 3.2: hit shaping +0.02, shot cost −0.01, death −2, escape −0.05 per alive ship, ally share 0. All are CLI-configurable and do not block.
+- **Q3 — Reward coefficients.** Defaults as in section 3.2: hit shaping +0.02, shot cost −0.05 (−0.01 until amendment 5), an extra −0.04 per HP lost to explosions (amendment 5), death −2, escape −0.05 per alive ship, ally share 0. All are CLI-configurable and do not block.
 - **Q4 — Episode length.** Episodes are truncated at 120 simulated seconds; upstream runs until every ship dies. Does not block.
 - **Q5 — Upstream quirks ported as-is.** Enemy attack cooldowns are shared across ships, one missile can damage several overlapping enemies, the zigzag modulo rule lets enemies stick at walls, and missiles launch from the ship's top-left corner. Fixing these would change the game, so they stay and are documented. Does not block.
 - **Q6 — Timestep.** Fixed 1/120 s ticks with a 4-tick action repeat (30 decisions/s); cooldowns become integer ticks. Does not block.
