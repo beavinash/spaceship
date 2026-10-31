@@ -496,7 +496,11 @@ Review scope: PPO_Project/
   - green: `make -C PPO_Project test T=ammo_out` → exit 0; `PASS env_tracks_ammo_out_and_bomb_damage` (100th missile at tick 2970 → `ammo_out_tick` 2971; a same-tick explosion plus body hit → damage 11, bomb damage 1) and `PASS eval_reports_ammo_out_and_bomb_damage` (a replay of scenario 1000 matches the report within 1e-9; both keys are in the JSON summary)
   - regression: `make -C PPO_Project test` → exit 0; `56 tests, 667 checks, 0 failed checks, 0 failed tests`
   - scans: `make -C PPO_Project analyze` → `analyze: 0 findings`; `make -C PPO_Project sanitize` → exit 0, `stress: 1000000 decisions, 279 episodes, peak 16/64 enemies, 28/64 missiles, 0 violations`; dependency audit: unavailable (no third-party code in the core)
-- [ ] T063 | P1 | depends: T062 | AC-028 | Update REWARD.md for the amendment-5 reward; done when: its worked examples match the pinned tests again.
+- [x] T063 | P1 | depends: T062 | AC-028 | Update REWARD.md for the amendment-5 reward; done when: its worked examples match the pinned tests again.
+  - red: a scratch check of REWARD.md against the pinned values (`doccheck.py`, not kept) → exit 1; 15 numbers missing (for example `**+0.445**`, `Episode return: **−0.01**`, `| bomb | −2.351 | −2.397 | −2.365 |`) with 9 stale ones present (for example `Episode return: **+0.59**`, `**+0.87**`)
+  - green: the same check → exit 0; `doccheck: all 16 pinned numbers present, 9 stale ones gone`. Section 9 was regenerated from fresh `ppo eval` dev reports for the kept checkpoint, random, plus the upstream tables (components sum to the return within 5e-6); section 10.3 records the amendment
+  - regression: `make -C PPO_Project test T=reward` → exit 0; `4 tests, 54 checks, 0 failed checks, 0 failed tests`; `T=explosion_damage` and `T=ammo_out` pass. HOW_TO_RUN.md no longer hard-codes a stale test count (it said 47)
+  - scans: not applicable (documentation only; no code changed)
 - [ ] T064 | P1 | depends: T063 | AC-031 | Retrain seed 101 for 15 minutes with the new reward; done when: a dev comparison with the kept checkpoint records ammo-out time, explosion damage, score, plus deaths.
 
 ## 6. Open questions

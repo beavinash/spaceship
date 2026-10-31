@@ -18,8 +18,9 @@ Every **decision**, which lasts 4 physics ticks (1/30 s), each ship `i` receives
 ```text
 r_i =  0.125 · (upstream points of the enemies ship i killed)      kill      2 / 4 / 8 points → +0.25 / +0.5 / +1.0
      + 0.02  · (hits by ship i's missiles)                         hit
-     − 0.01  · (missiles ship i launched)                          shot
+     − 0.05  · (missiles ship i launched)                          shot
      − 0.01  · (health ship i lost)                                damage    clamped to the health it had left
+     − 0.04  · (health ship i lost to explosions)                  bomb      on top of damage: −0.05 per explosion HP in total
      − 2     · (1 if ship i died during this decision)             death
      − 0.05  · (live enemies that escaped while ship i was alive)  escape
      + 0     · 0.125 · (points of kills by the other two ships)    ally      team-share knob, off by default
@@ -29,8 +30,9 @@ r_i =  0.125 · (upstream points of the enemies ship i killed)      kill      2 
 
 - **Per ship.** There is no single team reward: each ship's learner sees only its own `r_i` (`ally` is 0 by default).
 - **When it is computed.** `env_rewards` is called once after every `env_step`. The events (kills, hits, shots, damage, death, escapes) are counted during that decision's 4 ticks and cleared at the start of the next one.
-- **Tunable.** Every coefficient has a `train` flag: `--kill-points --hit --shot --damage --death --escape --ally-share --align --edge`. The shaping discount follows `--gamma`.
-- **Logged.** Each component is accumulated per ship (`stats.parts`), and `ppo eval` reports it as `reward_kill … reward_edge`. A test checks that the nine components add up to the return.
+- **Tunable.** Every coefficient has a `train` flag: `--kill-points --hit --shot --damage --death --escape --ally-share --align --edge --bomb`. The shaping discount follows `--gamma`.
+- **Logged.** Each component is accumulated per ship (`stats.parts`), and `ppo eval` reports it as `reward_kill … reward_bomb`. A test checks that the ten components add up to the return.
+- **Changed on 2026-10-30 (amendment 5).** The shot cost went from −0.01 to −0.05, and the `bomb` term is new. Section 10.3 explains why.
 
 ## 2. One decision, step by step
 
@@ -40,7 +42,7 @@ One `env_step` runs these steps, in upstream's frame order:
    - **kill:** points to the shooter;
    - **hit:** +1 to the missile's owner for every live enemy it touches;
    - **shot:** counted when a missile actually launches, so pressing fire during cooldown or with no ammo costs nothing;
-   - **damage and death:** charged to the ship hit;
+   - **damage and death:** charged to the ship hit; damage from an explosion also counts as `bomb`;
    - **escape:** charged to every ship alive at that tick.
 2. **`env_rewards`** turns the events into `r_i`. It computes the new potential Φ_i(s′), pays `0.5 · (0.99 · Φ′ − Φ)`, then stores Φ′ for the next decision.
 3. **The trainer** stores `r_i` in ship `i`'s own rollout. A ship that was already dead at the start of the decision is masked out: its reward is forced to 0 and never trained on.
@@ -51,13 +53,22 @@ Missiles deal 10 damage. The table assumes every missile hits, which is the best
 
 | Enemy | Health | Hits to kill | Points | Kill reward | Hit rewards | Shot costs | **Net for the kill** | **Net per missile** |
 |---|---|---|---|---|---|---|---|---|
-| Type 1 | 20 | 2 | 2 | +0.25 | +0.04 | −0.02 | **+0.27** | +0.135 |
-| Type 2 | 30 | 3 | 4 | +0.50 | +0.06 | −0.03 | **+0.53** | +0.177 |
-| Type 3 | 40 | 4 | 8 | +1.00 | +0.08 | −0.04 | **+1.04** | +0.260 |
+| Type 1 | 20 | 2 | 2 | +0.25 | +0.04 | −0.10 | **+0.19** | +0.095 |
+| Type 2 | 30 | 3 | 4 | +0.50 | +0.06 | −0.15 | **+0.41** | +0.137 |
+| Type 3 | 40 | 4 | 8 | +1.00 | +0.08 | −0.20 | **+0.88** | +0.220 |
 
-A type-3 kill is worth almost twice as much per missile as a type-1 kill, mirroring upstream's points (2 points per hit vs 1).
+A type-3 kill is worth more than twice as much per missile as a type-1 kill. Upstream pays 2 points per hit for it instead of 1, and the fixed shot cost weighs more on cheap kills.
 
 Ammo is finite: 100 missiles per ship, one every 0.25 s at most. So *which* enemy a missile goes to matters.
+
+**Aimed vs blind shots.** Not every missile lands. For the kept checkpoint on the dev scenarios, a missile that lands is worth about **+0.196**: (reward_kill + reward_hit) ÷ hits per ship = (4.971 + 0.566) ÷ 28.3 (section 9). Shots fired while the fire solution predicts a hit land 63% of the time; blind shots land 18% *(audit)*:
+
+| Shot | Lands | Expected value at −0.01 (before) | At −0.05 (now) |
+|---|---|---|---|
+| Aimed (a hit is predicted) | 63% | 0.63 × 0.196 − 0.01 = **+0.113** | 0.63 × 0.196 − 0.05 = **+0.073** |
+| Blind | 18% | 0.18 × 0.196 − 0.01 = **+0.025** | 0.18 × 0.196 − 0.05 = **−0.015** |
+
+At −0.01 every shot paid, so the best habit was to fire whenever the weapon was ready, and all 100 missiles were gone by about 27 s. At −0.05 only aimed shots pay.
 
 **What it costs to get hurt:**
 
@@ -66,9 +77,10 @@ Ammo is finite: 100 missiles per ship, one every 0.25 s at most. So *which* enem
 | Type 1 contact | 5 | 1.0 s | −0.05 |
 | Type 2 contact | 7 | 1.2 s | −0.07 |
 | Type 3 contact | 10 | 1.4 s | −0.10 |
-| Explosion (wreck of a kill) | 1 | 0.15 s | −0.01, i.e. about −0.067 per second inside it |
+| Explosion (wreck of a kill) | 1 | 0.15 s | −0.01 damage − 0.04 bomb = −0.05, i.e. about −0.33 per second inside it |
 
-- **Dying.** A ship that loses all 200 health pays −0.01 × 200 = **−2** in damage over its life, plus **−2** at death: **−4** in total.
+- **Fire bombs.** Before amendment 5 an explosion touch cost −0.01 (−0.067 per second), and the kept checkpoint learned to dodge enemy bodies but not wrecks. Per episode it takes 41 HP from bodies but 176 HP from explosions, as much as random play takes (180 HP, section 9). Pinned by `env_explosion_damage_costs_extra`.
+- **Dying.** A ship that loses all 200 health pays −0.01 × 200 = **−2** in damage over its life (up to −10 if it all came from explosions), plus **−2** at death: **−4** or more in total.
 - **Damage order.** Upstream checks contact damage in ship order with one cooldown per enemy, so when an enemy overlaps several ships, the lowest-index ship takes the hit.
 
 **Escapes.** 160 enemies spawn in 120 s (one every 0.75 s). The trained checkpoint still lets about 127 escape. That costs each living ship 127 × −0.05 ≈ **−6.3 per episode**, the largest single term.
@@ -126,21 +138,21 @@ Setup (pinned by `reward_doc_single_ship_type3_kill`):
 - **Ship 0** fires exactly four missiles, then holds still.
 - **Ships 1 and 2** stand at x = 800 and 850 with no shot, so their rewards stay 0.
 
-| Decision (tick) | What happens | kill | hit | shot | damage | shaping | **r₀** |
-|---|---|---|---|---|---|---|---|
-| 0 (4) | Fires missile 1; Φ: 0 → 1 | | | −0.01 | | +0.495 | **+0.485** |
-| 1–67 | Stays lined up (Φ = 1); fires missiles 2–4 at decisions 7, 15, 22 (−0.01 each) | | | | | −0.005 each | −0.005 or −0.015 |
-| 49, 55, 62 (200, 224, 252) | Missiles 1–3 land (−10 HP each) | | +0.02 | | | −0.005 | **+0.015** each |
-| 68 (276) | Missile 4 lands: kill (8 points); Φ: 1 → 0 | +1.00 | +0.02 | | | −0.500 | **+0.520** |
-| 171–216 | The wreck drifts down onto the still ship: 11 touches of 1 HP | | | | −0.01 each | | −0.010 each |
+| Decision (tick) | What happens | kill | hit | shot | damage | bomb | shaping | **r₀** |
+|---|---|---|---|---|---|---|---|---|
+| 0 (4) | Fires missile 1; Φ: 0 → 1 | | | −0.05 | | | +0.495 | **+0.445** |
+| 1–67 | Stays lined up (Φ = 1); fires missiles 2–4 at decisions 7, 15, 22 (−0.05 each) | | | | | | −0.005 each | −0.005 or −0.055 |
+| 49, 55, 62 (200, 224, 252) | Missiles 1–3 land (−10 HP each) | | +0.02 | | | | −0.005 | **+0.015** each |
+| 68 (276) | Missile 4 lands: kill (8 points); Φ: 1 → 0 | +1.00 | +0.02 | | | | −0.500 | **+0.520** |
+| 171–216 | The wreck drifts down onto the still ship: 11 touches of 1 HP | | | | −0.01 each | −0.04 each | | −0.050 each |
 
-Ship 0's totals: kill +1.00, hit +0.08, shot −0.04, damage −0.11, shaping −0.34 (+0.495 − 67 × 0.005 − 0.500). Episode return: **+0.59**.
+Ship 0's totals: kill +1.00, hit +0.08, shot −0.20, damage −0.11, bomb −0.44, shaping −0.34 (+0.495 − 67 × 0.005 − 0.500). Episode return: **−0.01**.
 
 Three things to notice:
 
 - **Shaping moves money earlier.** The kill step pays +0.52 instead of +1.02: half of the type-3 bonus was already paid at decision 0, when the ship lined up. Discounted, the shaping still sums to exactly 0 (section 4.3).
 - **Holding a sure shot leaks a little.** 67 aligned decisions × −0.005 = −0.335.
-- **Killing overhead has a cost.** The explosion falls at about 100 px/s and lands on a ship that doesn't move: −0.11 here. A better policy steps aside after the kill.
+- **Standing under the wreck costs more than the kill earns.** The explosion falls at about 100 px/s onto a ship that doesn't move: 11 HP × −0.05 = −0.55, so the return drops from +0.54 to −0.01. Before amendment 5 the same 11 HP cost only −0.11. Stepping aside after the kill keeps the +0.54.
 
 ## 6. Worked example 2: three ships, one shared target, one escape
 
@@ -156,16 +168,16 @@ Shot quality for both shooters is `1 − 20/70 = 0.714`.
 
 | Decision (tick) | Ship 0 | Ship 1 | Ship 2 |
 |---|---|---|---|
-| 0 (4): both fire; Φ 0 → 0.714 | −0.01 + 0.5 × 0.99 × 0.714 = **+0.3436** | **+0.3436** | 0 |
-| 7 (32): both fire again | −0.01 − 0.0036 = **−0.0136** | **−0.0136** | 0 |
+| 0 (4): both fire; Φ 0 → 0.714 | −0.05 + 0.5 × 0.99 × 0.714 = **+0.3036** | **+0.3036** | 0 |
+| 7 (32): both fire again | −0.05 − 0.0036 = **−0.0536** | **−0.0536** | 0 |
 | 41 (168): the bottom enemy escapes | −0.05 − 0.0036 = **−0.0536** | **−0.0536** | **−0.05** |
 | 48 (196): both first missiles hit (30 → 10 HP) | +0.02 − 0.0036 = **+0.0164** | **+0.0164** | 0 |
 | 54 (220): both second missiles arrive on the same tick | kill +0.5, hit +0.02, Φ 0.714 → 0: −0.3571 → **+0.1629** | no hit (its missile meets the new explosion), Φ → 0: **−0.3571** | 0 |
-| **Episode return** | **+0.2771** | **−0.2429** | **−0.0500** |
+| **Episode return** | **+0.1971** | **−0.3229** | **−0.0500** |
 
 What this shows about three learners:
 
-- **Kill credit goes to whoever lands the killing hit.** Ship 1 did a third of the damage and ended at −0.24. Ship 0 did two thirds and ended at +0.28. When missiles arrive on the same tick, the lower-index ship's missile is checked first, an upstream quirk. `--ally-share 0.5` would give every ship half the value of its allies' kills (+0.25 each here).
+- **Kill credit goes to whoever lands the killing hit.** Ship 1 did a third of the damage and ended at −0.32. Ship 0 did two thirds and ended at +0.20. When missiles arrive on the same tick, the lower-index ship's missile is checked first, an upstream quirk. `--ally-share 0.5` would give every ship half the value of its allies' kills (+0.25 each here).
 - **Escapes tax every living ship.** Ship 2 paid −0.05 for an enemy it never touched, so the team paid −0.15 for one escape.
 - **Shaping is per ship.** Both shooters were lined up, so both got the +0.354, and both gave it back when the target died, even though only ship 0 earned the kill.
 
@@ -175,11 +187,11 @@ Pinned by `env_rewards_follow_configured_coefficients`. One decision with these 
 
 | | Events this decision | Arithmetic | **r** |
 |---|---|---|---|
-| Ship 0 | kill worth 8 points, 3 hits, 2 shots, 7 HP lost, 2 escapes | 0.125 × 8 + 0.02 × 3 − 0.01 × 2 − 0.01 × 7 − 0.05 × 2 = 1.00 + 0.06 − 0.02 − 0.07 − 0.10 | **+0.87** |
+| Ship 0 | kill worth 8 points, 3 hits, 2 shots, 7 HP lost, 2 escapes | 0.125 × 8 + 0.02 × 3 − 0.05 × 2 − 0.01 × 7 − 0.05 × 2 = 1.00 + 0.06 − 0.10 − 0.07 − 0.10 | **+0.79** |
 | Ship 1 | lost its last 3 HP and died | −0.01 × 3 − 2 | **−2.03** |
 | Ship 2 | nothing | | **0** |
 
-With `--ally-share 0.5`, ship 0 also gets 0.5 × 0.125 × 4 = +0.25 for an ally's 4-point kill, giving **+1.12**. No shaping or edge terms appear here: there are no enemies left, and every ship is away from the walls.
+With `--ally-share 0.5`, ship 0 also gets 0.5 × 0.125 × 4 = +0.25 for an ally's 4-point kill, giving **+1.04**. No shaping, edge, or bomb terms appear here: there are no enemies or explosions, and every ship is away from the walls.
 
 ## 8. How the reward reaches PPO
 
@@ -191,23 +203,26 @@ With `--ally-share 0.5`, ship 0 also gets 0.5 × 0.125 × 4 = +0.25 for an ally'
 
 ## 9. A whole episode, ship by ship
 
-Dev scenarios 1000–1019, mean per ship per 120 s episode, from `ppo eval` (`reward_*` keys):
+Dev scenarios 1000–1019, mean per ship per 120 s episode, from `ppo eval` (`reward_*` keys), priced with the amendment-5 reward. The PPO checkpoint is the kept one, trained before amendment 5, so this table shows its old habits at the new prices. The game rows don't depend on the reward.
 
 | Component | PPO checkpoint | Random | Upstream tables* |
 |---|---|---|---|
 | kill | **+4.971** | +4.196 | +4.275 |
 | hit | +0.566 | +0.489 | +0.524 |
-| shot | −1.000 | −1.000 | −1.000 |
+| shot | −5.000 | −5.000 | −5.000 |
 | damage | **−0.723** | −1.700 | −1.548 |
+| bomb | −2.351 | −2.397 | −2.365 |
 | death | **0.000** | −0.867 | −0.500 |
 | escape | −6.330 | −5.813 | −6.300 |
 | ally | 0 | 0 | 0 |
 | align (shaping) | −0.625 | −0.649 | −2.936 |
 | edge | **−0.305** | −1.114 | −1.992 |
-| **return** | **−3.446** | −6.457 | −9.477 |
+| **return** | **−9.796** | −12.854 | −15.843 |
 | team score (game points) | **119.3** | 100.7 | 102.6 |
 | ships alive at the end | **3.0** | 1.7 | 2.25 |
 | score by ship (0 / 1 / 2) | 38.6 / 47.2 / 33.5 | 36.4 / 32.9 / 31.4 | 20.9 / 40.8 / 40.9 |
+| ammo runs out at (s, mean per ship) | 27.0 | 27.6 | 34.3 |
+| explosion damage (team HP) | 176.3 | 179.8 | 177.4 |
 
 \*Upstream's tables decide every tick (14,400 decisions instead of 3,600). The per-decision terms (shaping leak, edge) therefore pile up four times faster, so their return isn't comparable. Their game metrics are.
 
@@ -216,16 +231,18 @@ Cross-checks:
 - **Kill:** PPO's kill term is 4.971 × 3 ships ÷ 0.125 = 119.3 points, exactly the team score.
 - **Damage:** the 216.9 HP team damage ÷ 3 × 0.01 = 0.723.
 - **Escape:** 126.6 escapes × 0.05 = 6.33.
+- **Shot:** 100 missiles × 0.05 = 5.000. Every policy fires all of its ammo.
+- **Bomb:** the 176.3 HP of explosion damage ÷ 3 × 0.04 = 2.351.
 
 Random play's escape term (−5.81) is *smaller* than its 129.95 escapes × 0.05 = −6.50, because ships that die stop paying (section 11.2).
 
-**Where PPO's advantage comes from:** +0.78 more kill reward, +0.98 less damage, +0.87 less death, and +0.81 less edge penalty.
+**Where PPO's advantage comes from:** +0.78 more kill reward, +0.98 less damage, +0.87 less death, and +0.81 less edge penalty. It gains almost nothing on explosions (+0.05) and nothing on shots. Those are the two habits amendment 5 targets (section 10.3).
 
-## 10. Bugs found and fixed while writing this
+## 10. Bugs found and fixed
 
 The audit played 40 episodes each with the checkpoint and with random play, and checked the invariants. These held:
 
-- **Components:** they sum to the return, within 1e-4 of float rounding.
+- **Components:** they sum to the return to float32 rounding: within 1e-4 then, and up to 1.1e-4 with the larger amendment-5 returns (the test allows 1e-3).
 - **Dead ships:** no reward ever reached a dead ship the learner couldn't see.
 - **Edge check:** the end-of-decision edge check agrees with time actually spent in the band in 99.3–99.9% of decisions *(audit)*.
 
@@ -245,6 +262,19 @@ Two defects in the learning signal were fixed, each test-first. Neither changes 
 
 **After:** the limit is terminal for learning: no bootstrap, and Φ′ = 0. `env_time_limit_is_terminal_for_shaping` checks that a ship still lined up at the limit pays back −0.5 × Φ. `trainer_time_limit_has_no_bootstrap` checks no sample carries a bootstrap.
 
+### 10.3 Shots and fire bombs were too cheap (T060–T062, amendment 5)
+
+**Before:**
+- **Shots.** At −0.01 per missile even a blind shot paid (+0.025, section 3). Ships fired whenever the weapon was ready and ran dry at **27.0 s** (random play: 27.6 s; the fastest possible is 24.8 s).
+- **Fire bombs.** Explosions cost the same −0.01 per HP as an enemy body. The kept checkpoint learned to avoid bodies (41 HP per episode, against random play's 330) but took **176 HP** from explosions, as much as random play.
+
+**After:**
+- **Shots.** The shot cost is −0.05, so a blind shot loses about −0.015 while an aimed one still earns about +0.07.
+- **Fire bombs.** Each HP lost to an explosion costs −0.04 extra: −0.05 in total, about −0.33 per second inside one.
+- **Reporting.** `ppo eval` reports both symptoms directly, as `ammo_out_seconds` and `bomb_damage`.
+
+Tests: `env_rewards_follow_configured_coefficients`, `env_explosion_damage_costs_extra`, `env_tracks_ammo_out_and_bomb_damage`, `eval_reports_ammo_out_and_bomb_damage`. Unlike 10.1 and 10.2, this changes which policy is best, so it needs retraining.
+
 ## 11. Known issues left as they are (with numbers)
 
 ### 11.1 Explosions crowd targets out of the observation
@@ -253,7 +283,7 @@ This is the root cause behind 10.1. The fix belongs in the observation itself: f
 
 ### 11.2 A latent "suicide incentive" if γ is raised toward 1
 
-Only living ships pay the escape term. Over a whole episode, surviving costs about −6.3 in escapes, while dying at once costs −2 (death) + up to −2 (damage) = −4. Undiscounted, dying early would therefore look *cheaper* for a ship that can't kill much.
+Only living ships pay the escape term. Over a whole episode, surviving costs about −6.3 in escapes, while dying at once costs −2 (death) + at least −2 (damage) = −4 or more; the bomb term only adds to that. Undiscounted, dying early could therefore look *cheaper* for a ship that can't kill much.
 
 At the trained γ = 0.99 (horizon ≈ 100 decisions ≈ 3.3 s), the escape cost a living ship can see ahead is only:
 
@@ -284,10 +314,11 @@ A missile already on its way can kill the target first, as with ship 1's second 
 ```sh
 make test T=reward                                   # reward tests, including examples 1-3
 make test T=alignment_shaping && make test T=potential && make test T=time_limit && make test T=edge_penalty
+make test T=explosion_damage && make test T=ammo_out
 mkdir -p runs
 ./build/ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --output runs/dev-ppo.json
 ./build/ppo eval --policy random --output runs/dev-random.json
 ./build/ppo eval --policy legacy --output runs/dev-legacy.json
 ```
 
-The reports' `summary` holds `reward_kill … reward_edge` and `return_mean` (per ship), plus the game metrics in section 9.
+The reports' `summary` holds `reward_kill … reward_bomb` and `return_mean` (per ship), plus the game metrics in section 9, including `ammo_out_seconds` and `bomb_damage`.

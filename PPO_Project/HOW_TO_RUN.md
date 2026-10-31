@@ -25,7 +25,7 @@ mkdir -p runs
 ## 2. Build and test
 
 ```sh
-make test     # 47 unit and integration tests
+make test     # unit and integration tests
 make smoke    # two tiny training updates through the real command
 ```
 
