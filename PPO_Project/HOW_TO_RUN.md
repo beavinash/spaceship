@@ -31,11 +31,14 @@ make smoke    # two tiny training updates through the real command
 
 ## 3. Watch the trained ships play
 
-`checkpoints/ppo_seed101.bin` is the committed checkpoint from a 10-minute training run.
+Two checkpoints are committed, both trained on seed 101:
+
+- `checkpoints/ppo_seed101_v2.bin` is the current one: 15 minutes of training with the current reward, which makes blind shots and explosion damage costly.
+- `checkpoints/ppo_seed101.bin` is the earlier 10-minute run with the original reward, kept for comparison.
 
 ```sh
 make viewer
-./build/viewer --policy ppo --checkpoint checkpoints/ppo_seed101.bin
+./build/viewer --policy ppo --checkpoint checkpoints/ppo_seed101_v2.bin
 ```
 
 Keys: Space pause, F 1×/4× speed, R restart, N next scenario, Esc quit. `--policy random` or `--policy legacy` shows the baselines instead.
@@ -45,12 +48,12 @@ Keys: Space pause, F 1×/4× speed, R restart, N next scenario, Esc quit. `--pol
 Each command plays the 20 development scenarios (seeds 1000–1019) and writes a JSON report.
 
 ```sh
-./build/ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --output runs/dev-ppo.json
+./build/ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101_v2.bin --output runs/dev-ppo.json
 ./build/ppo eval --policy random --output runs/dev-random.json
 ./build/ppo eval --policy legacy --output runs/dev-legacy.json
 ```
 
-Each run prints a summary line, for example `ppo on dev (20 scenarios): team score 119.30 +/- 10.29, deaths 0.00 +/- 0.00`.
+Each run prints a summary line, for example `ppo on dev (20 scenarios): team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18`.
 
 The 100 held-out test scenarios (`--split test`) are reserved for one final check and need `--final`.
 
@@ -72,14 +75,16 @@ The 100 held-out test scenarios (`--split test`) are reserved for one final chec
 ./build/viewer --run-dir runs/my-run
 ```
 
-## 6. Results of the committed checkpoint
+## 6. Results of the committed checkpoints
 
-These are from the 100 held-out test scenarios, with actions sampled from the policy. Values are mean ± 95% CI.
+These are from the 100 held-out test scenarios, with actions sampled from the policy. Values are means; the team score also shows its 95% CI.
 
-| | PPO | Random | Upstream tables |
-|---|---|---|---|
-| Team score | 117.9 ± 3.6 | 103.7 ± 4.6 | 103.8 ± 4.4 |
-| Ships lost per episode | 0.00 | 1.40 | 0.65 |
-| Accuracy | 0.288 | 0.256 | 0.269 |
+| | PPO, current (`_v2`) | PPO, original | Random | Upstream tables |
+|---|---|---|---|---|
+| Team score | **250.3 ± 4.0** | 117.9 ± 3.6 | 103.7 ± 4.6 | 103.8 ± 4.4 |
+| Ships lost per episode | 0.12 | **0.00** | 1.40 | 0.65 |
+| Accuracy | **0.734** | 0.288 | 0.256 | 0.269 |
+| Ammo runs out at | **81 s** | 27 s | 28 s | 34 s |
+| Explosion damage per episode (team HP) | **141** | 180 | 189 | 179 |
 
-This is a single 10-minute training run. How the reward works for the three ships, with worked calculations, is in `REWARD.md`. Design details and full evidence are in `PRD.md` and `WALKTHROUGH.md`.
+Each checkpoint comes from a single training run. The current one aims before it fires and keeps its missiles three times longer. It also takes more hits from enemy bodies: 248 HP per episode, against 44 for the original. How the reward works for the three ships, with worked calculations, is in `REWARD.md`. Design details and full evidence are in `PRD.md` and `WALKTHROUGH.md`.

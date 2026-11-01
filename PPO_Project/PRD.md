@@ -517,7 +517,11 @@ Review scope: PPO_Project/
   - green: `ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101_v2.bin --split test --final` → `team score 250.34 +/- 3.95, deaths 0.12 +/- 0.06`; random `103.68 +/- 4.65, deaths 1.40 +/- 0.16`; legacy `103.78 +/- 4.42, deaths 0.65 +/- 0.12`; judged: `MQ-1 PASS` (+146.66 over random against a bar of 8.59; +146.56 over legacy against 8.36), `MQ-2 PASS` (0.12 vs 1.40), `MQ-3 PASS` (edge 0.041), `MQ-4 PASS` (accuracy 0.734 vs 0.256, aimed 0.810 vs 0.229). Also: ammo runs out at 81.1 s (original 27.0 s), explosion damage 140.6 HP (original 179.8), body damage 248.0 HP (original 44.2). Single training seed, so the 2-of-3-seeds clause is not assessable
   - regression: re-running the original checkpoint on test for the new metric fields reproduces its T043 game metrics exactly (`team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00`); the baselines match their T043 reports
   - scans: no code changed in this task
-- [ ] T067 | P2 | depends: T066 | AC-017 | Point HOW_TO_RUN at the retrained checkpoint with its test results; done when: each of its checkpoint commands runs as written.
+- [x] T067 | P2 | depends: T066 | AC-017 | Point HOW_TO_RUN at the retrained checkpoint with its test results; done when: each of its checkpoint commands runs as written.
+  - red: a scratch check (`howcheck.sh`, not kept) → exit 1; `HOW_TO_RUN.md does not name checkpoints/ppo_seed101_v2.bin`
+  - green: the same check → exit 0; `[0] ./build/viewer --policy ppo --checkpoint checkpoints/ppo_seed101_v2.bin` (run headless with `--frames 60 --screenshot`: `3 ships, 2 enemies, 2 missiles`) and `[0] ./build/ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101_v2.bin --output runs/dev-ppo.json` → `team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18`, the example line the doc shows. Section 6 now reports both checkpoints on the test split; REWARD.md 10.3 no longer says the checkpoint is uncommitted or untested
+  - regression: `doccheck.py REWARD.md` → `doccheck: all 16 pinned numbers present, 9 stale ones gone`
+  - scans: not applicable (documentation only)
 
 ## 6. Open questions
 
