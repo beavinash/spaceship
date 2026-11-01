@@ -326,3 +326,69 @@ viewer, seed 1000, HUD at 30 s: kept "ammo 0" for all three ships; selected "amm
 - **AC-028 exception.** The 63% / 18% hit rates for aimed vs blind shots, and the per-ship figures above, come from scratch probes not kept in the repo.
 - **Loosened tolerance.** The eval component-sum tolerance went from 1e-4 to 1e-3, because float32 sums now drift up to 1.1e-4 at the larger returns. Leaving out any non-zero component still fails the check.
 - **Viewer self-check.** `viewer --screenshot` exits 1 when no missiles are on screen (the kept checkpoint at 30 s, the new one at 90 s); the images were still saved and inspected.
+
+# Addendum 3 — keeping the retrained checkpoint (T065–T067)
+
+## 1. Delivery summary
+
+Asked whether to keep the retrained checkpoint in git or reduce body hits first, the user chose "Keep checkpoint". This round:
+
+- **T065.** Added `checkpoints/ppo_seed101_v2.bin` beside the original, with an index entry.
+- **T066.** Ran its one evaluation on the 100 held-out test scenarios. MQ-1 to MQ-4 all pass.
+- **T067.** Pointed `HOW_TO_RUN.md` at the new checkpoint.
+
+The original checkpoint stays, because REWARD.md section 9 and its comparisons use it. Scope is complete.
+
+**Snapshot.**
+
+- Range: `b6d63f0` → `42f3dc3`, scope `PPO_Project/`.
+- State: committed and clean. `README.md` is untracked by design and was updated locally to match.
+
+## 2. Changes in the diff
+
+| Changed file and diff line(s) | Observed change | Relevant task |
+| --- | --- | --- |
+| `checkpoints/ppo_seed101_v2.bin` (new, binary, 868,096 bytes; no text lines) | The retrained checkpoint, a copy of `runs/bomb101/selected.bin` | T065 |
+| `checkpoints/index.json` new 11, 23–44 | `reward` field for the original entry; a full entry for `ppo_seed101_v2.bin` with dev metrics and sha256 | T065 |
+| `HOW_TO_RUN.md` old 34 → new 34–37, 38 → 41, 48 → 51, 53 → 56, 75 → 78, 77 → 80, 79–83 → 82–88, 85 → 90 | Both checkpoints described; viewer and eval commands load `_v2`; the results table compares both checkpoints on the test split | T067 |
+| `REWARD.md` 278, 290 | Section 10.3 names the committed file and its test result | T067 |
+| `PRD.md` new 19, 510–524 | Amendment 6; T065–T067 with evidence | all |
+
+## 3. Verification evidence
+
+No code changed in this round.
+
+```text
+make test (at 42f3dc3) -> exit 0   56 tests, 667 checks, 0 failed checks, 0 failed tests
+marker scan (5 changed paths since b6d63f0): none found; ppo_seed101_v2.bin is binary and not text-searchable
+```
+
+Model evaluation (100 held-out test scenarios, sampled actions):
+
+```text
+ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101_v2.bin --split test --final
+  -> team score 250.34 +/- 3.95, deaths 0.12 +/- 0.06
+ppo eval --policy ppo --checkpoint checkpoints/ppo_seed101.bin --split test --final   (re-run for the new metric fields)
+  -> team score 117.90 +/- 3.62, deaths 0.00 +/- 0.00   (game metrics identical to its T043 report)
+random -> team score 103.68 +/- 4.65, deaths 1.40 +/- 0.16
+legacy -> team score 103.78 +/- 4.42, deaths 0.65 +/- 0.12
+MQ-1 PASS (+146.66 over random against a bar of 8.59; +146.56 over legacy against 8.36)
+MQ-2 PASS (0.12 vs 1.40)   MQ-3 PASS (edge 0.041)   MQ-4 PASS (accuracy 0.734 vs 0.256, aimed 0.810 vs 0.229)
+ammo runs out at 81.1 s (original 27.0 s); explosion damage 140.6 HP (original 179.8); body damage 248.0 HP (original 44.2)
+```
+
+## 4. Acceptance criteria
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| AC-025 git holds only selected checkpoints plus a short index | met | `git ls-files checkpoints` lists the index and the two selected checkpoints; nothing under `runs/` or `build/` is tracked |
+| AC-019 one test-split report per selected checkpoint, MQ-1 to MQ-4 judged | met for this checkpoint | Section 3; the 2-of-3-seeds clause of MQ-1 is not assessable with one seed |
+| AC-017 the README commands run as written | met for HOW_TO_RUN's checkpoint commands | The viewer (headless) and eval commands exit 0; eval prints the documented line |
+
+## 5. Limitations
+
+- **Second test run of the original checkpoint.** It was re-run on the test split only to add the new metric fields. It is frozen and was not re-selected, and its game metrics match its first report exactly.
+- **Viewer check ran headless.** The `HOW_TO_RUN` viewer command was run with `--frames 60 --screenshot` appended, not as an interactive window. The same command ran interactively earlier, at the end of T064.
+- **One seed.** MQ-1's 2-of-3-seeds clause cannot be judged.
+- **Body hits and losses remain.** The current checkpoint takes 248 HP per episode from enemy bodies and loses 0.12 ships per episode on test; the original loses none.
+- **Larger repository.** Keeping both checkpoints adds 868,096 bytes to git.
