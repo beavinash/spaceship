@@ -8,6 +8,7 @@
       "decisions": 3796992,
       "training_seconds": 600,
       "code": "5513b14 (manifest says c2928fc-dirty: built from the T052 tree just before that commit)",
+      "reward": "original (shot -0.01, no bomb term); REWARD.md section 9 prices its play at the new rates",
       "networks": "3 ships x (actor 148-128-128-8, critic 148-128-128-1)",
       "selected_on": "dev scenarios 1000-1019, sampled actions, max mean team score",
       "dev": {
@@ -19,6 +20,28 @@
         "deaths": 0.0
       },
       "sha256": "9953429e3d23cc516b83e3a1f74f898f618df6e054dfb560941392c4b107aebc"
+    },
+    {
+      "file": "ppo_seed101_v2.bin",
+      "seed": 101,
+      "update": 3247,
+      "decisions": 6649856,
+      "training_seconds": 900,
+      "code": "0e368c1 (T061; manifest git_commit is clean)",
+      "reward": "amendment 5: shot -0.05, extra -0.04 per HP lost to explosions",
+      "networks": "3 ships x (actor 148-128-128-8, critic 148-128-128-1)",
+      "selected_on": "dev scenarios 1000-1019, sampled actions, max mean team score (best of 22 checkpoints)",
+      "dev": {
+        "team_score": 253.0,
+        "kills": 55.05,
+        "accuracy": 0.729,
+        "aimed_shot_share": 0.809,
+        "edge_share": 0.043,
+        "deaths": 0.2,
+        "ammo_out_seconds": 81.0,
+        "bomb_damage": 145.7
+      },
+      "sha256": "d40ceda3a5c3fe6ec560c4a4551c7a52f731e67728bd7b6aa33820d93e2bac45"
     }
   ]
 }

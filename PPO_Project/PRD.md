@@ -507,7 +507,11 @@ Review scope: PPO_Project/
   - green: `ppo train --run-dir runs/bomb101 --seed 101 --total-decisions 50000000 --max-seconds 900 --checkpoint-every 150` (built at 0e368c1) → exit 0, `"status": "time_limit"`, 3,247 updates, 6,649,856 decisions; `ppo select --run-dir runs/bomb101` → `selected runs/bomb101/final.bin (update 3247): dev team score 253.00, deaths 0.20, from 22 checkpoints`; its dev report → `team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18`, `ammo_out_seconds` 81.0, `bomb_damage` 145.7 (2.6 HP per kill vs 6.8), accuracy 0.729 vs 0.283, aimed share 0.809 vs 0.243. Trade-off: body damage 249.1 vs 40.6 HP, ships lost 0.20 vs 0.00 (4 of 60 ship-episodes, all after 87 s). Update 2100 (≈ 585 s) scored 174.0 with no losses, but ship 0 had stopped firing there (2.4 shots per episode)
   - regression: no code changed in this task; the full suite at 80db9e4: `make test` → exit 0, `56 tests, 667 checks, 0 failed checks, 0 failed tests`
   - scans: not applicable (training run only); single seed, best of 22 dev scores, no held-out test-split run
-- [ ] T065 | P1 | depends: T064 | AC-025 | Keep the retrained checkpoint in `checkpoints/` beside the original; done when: git tracks `ppo_seed101_v2.bin` with a matching sha256 in `index.json`.
+- [x] T065 | P1 | depends: T064 | AC-025 | Keep the retrained checkpoint in `checkpoints/` beside the original; done when: git tracks `ppo_seed101_v2.bin` with a matching sha256 in `index.json`.
+  - red: a scratch check (`ckcheck.sh`, not kept) → exit 1; `not tracked: checkpoints/ppo_seed101_v2.bin`
+  - green: the same check → exit 0; `ckcheck: checkpoints/ppo_seed101_v2.bin tracked, sha256 d40ceda3a5c3fe6ec560c4a4551c7a52f731e67728bd7b6aa33820d93e2bac45 matches index.json` (868,096 bytes, a copy of `runs/bomb101/selected.bin`); reloading it from `checkpoints/` reproduces `team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18` on dev
+  - regression: `ppo eval` of `checkpoints/ppo_seed101.bin` still gives `team score 119.30 +/- 10.29, deaths 0.00 +/- 0.00`; `git ls-files PPO_Project/runs PPO_Project/build` lists 0 files
+  - scans: not applicable (data and index only); `python3 -m json.tool checkpoints/index.json` → valid
 - [ ] T066 | P1 | depends: T065 | AC-019 | Evaluate the retrained checkpoint once on the test split against both baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
 - [ ] T067 | P2 | depends: T066 | AC-017 | Point HOW_TO_RUN at the retrained checkpoint with its test results; done when: each of its checkpoint commands runs as written.
 
