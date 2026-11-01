@@ -16,6 +16,7 @@ Amendment 5 (2026-10-30): the user reported "right now it's not avoiding the fir
 - **Fire bombs.** Explosions cause 81% of the damage the team takes (176 of 217 HP per episode), yet cost the same −0.01 per HP as an enemy body.
 
 Shown the proposed code change, the user replied "Sounds good. make the above changes and let's train for 10-15 minutes and show me the spaceship playing the game." T060–T064 implement it: a −0.05 shot cost, an extra −0.04 per HP lost to explosions, eval metrics for both problems, and one 15-minute retrain on seed 101, shown in the viewer.
+Amendment 6 (2026-10-31): asked whether to keep the retrained checkpoint in git or reduce body hits first, the user chose "Keep checkpoint". T065–T067 keep it beside the original, which REWARD.md's comparisons still use. They then run its one held-out test evaluation and point HOW_TO_RUN at it.
 Authoritative backlog: this document, section 5
 
 ## 1. Problem and users
@@ -506,6 +507,9 @@ Review scope: PPO_Project/
   - green: `ppo train --run-dir runs/bomb101 --seed 101 --total-decisions 50000000 --max-seconds 900 --checkpoint-every 150` (built at 0e368c1) → exit 0, `"status": "time_limit"`, 3,247 updates, 6,649,856 decisions; `ppo select --run-dir runs/bomb101` → `selected runs/bomb101/final.bin (update 3247): dev team score 253.00, deaths 0.20, from 22 checkpoints`; its dev report → `team score 253.00 +/- 9.80, deaths 0.20 +/- 0.18`, `ammo_out_seconds` 81.0, `bomb_damage` 145.7 (2.6 HP per kill vs 6.8), accuracy 0.729 vs 0.283, aimed share 0.809 vs 0.243. Trade-off: body damage 249.1 vs 40.6 HP, ships lost 0.20 vs 0.00 (4 of 60 ship-episodes, all after 87 s). Update 2100 (≈ 585 s) scored 174.0 with no losses, but ship 0 had stopped firing there (2.4 shots per episode)
   - regression: no code changed in this task; the full suite at 80db9e4: `make test` → exit 0, `56 tests, 667 checks, 0 failed checks, 0 failed tests`
   - scans: not applicable (training run only); single seed, best of 22 dev scores, no held-out test-split run
+- [ ] T065 | P1 | depends: T064 | AC-025 | Keep the retrained checkpoint in `checkpoints/` beside the original; done when: git tracks `ppo_seed101_v2.bin` with a matching sha256 in `index.json`.
+- [ ] T066 | P1 | depends: T065 | AC-019 | Evaluate the retrained checkpoint once on the test split against both baselines; done when: the report records MQ-1 through MQ-4 as pass or fail.
+- [ ] T067 | P2 | depends: T066 | AC-017 | Point HOW_TO_RUN at the retrained checkpoint with its test results; done when: each of its checkpoint commands runs as written.
 
 ## 6. Open questions
 
